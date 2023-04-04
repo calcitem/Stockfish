@@ -53,7 +53,7 @@ namespace {
 
   // Futility margin
   Value futility_margin(Depth d, bool improving) {
-    return Value(154 * (d - improving));    // TODO: Sanmill
+    return Value(154 * (d - improving));
   }
 
   // Reductions lookup table, initialized at startup
@@ -61,7 +61,7 @@ namespace {
 
   Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
     int r = Reductions[d] * Reductions[mn];
-    return (r + 1449 - int(delta) * 1032 / int(rootDelta)) / 1024 + (!i && r > 941);    // TODO: Sanmill
+    return (r + 1449 - int(delta) * 1032 / int(rootDelta)) / 1024 + (!i && r > 941);
   }
 
   constexpr int futility_move_count(bool improving, Depth depth) {
@@ -71,7 +71,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
-    return std::min(340 * d - 470, 1855);    // TODO: Sanmill
+    return std::min(340 * d - 470, 1855);
   }
 
   // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -288,7 +288,7 @@ void Thread::search() {
       else
           Eval::evaluate(rootPos, &rootComplexity);
 
-      mainThread->complexity = std::min(1.03 + (rootComplexity - 241) / 1552.0, 1.45);    // TODO: Sanmill
+      mainThread->complexity = std::min(1.03 + (rootComplexity - 241) / 1552.0, 1.45);
 
       if (mainThread->bestPreviousScore == VALUE_INFINITE)
           for (int i = 0; i < 4; ++i)
@@ -342,12 +342,12 @@ void Thread::search() {
           if (rootDepth >= 4)
           {
               Value prev = rootMoves[pvIdx].averageScore;
-              delta = Value(10) + int(prev) * prev / 16502;    // TODO: Sanmill
+              delta = Value(10) + int(prev) * prev / 16502;
               alpha = std::max(prev - delta,-VALUE_INFINITE);
               beta  = std::min(prev + delta, VALUE_INFINITE);
 
               // Adjust optimism based on root move's previousScore
-              int opt = 120 * prev / (std::abs(prev) + 161);    // TODO: Sanmill
+              int opt = 120 * prev / (std::abs(prev) + 161);
               optimism[ us] = Value(opt);
               optimism[~us] = -optimism[us];
           }
@@ -452,13 +452,13 @@ void Thread::search() {
           && !mainThread->stopOnPonderhit)
       {
           double fallingEval = (69 + 13 * (mainThread->bestPreviousAverageScore - bestValue)
-                                    +  6 * (mainThread->iterValue[iterIdx] - bestValue)) / 619.6;    // TODO: Sanmill
+                                    +  6 * (mainThread->iterValue[iterIdx] - bestValue)) / 619.6;
           fallingEval = std::clamp(fallingEval, 0.5, 1.5);
 
           // If the bestMove is stable over several iterations, reduce time accordingly
-          timeReduction = lastBestMoveDepth + 8 < completedDepth ? 1.57 : 0.65;    // TODO: Sanmill
-          double reduction = (1.4 + mainThread->previousTimeReduction) / (2.08 * timeReduction);    // TODO: Sanmill
-          double bestMoveInstability = 1 + 1.8 * totBestMoveChanges / Threads.size();    // TODO: Sanmill
+          timeReduction = lastBestMoveDepth + 8 < completedDepth ? 1.57 : 0.65;
+          double reduction = (1.4 + mainThread->previousTimeReduction) / (2.08 * timeReduction);
+          double bestMoveInstability = 1 + 1.8 * totBestMoveChanges / Threads.size();
 
           double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability * mainThread->complexity;
 
@@ -478,7 +478,7 @@ void Thread::search() {
                   Threads.stop = true;
           }
           else if (   !mainThread->ponder
-                   && Time.elapsed() > totalTime * 0.50)    // TODO: Sanmill
+                   && Time.elapsed() > totalTime * 0.50)
               Threads.increaseDepth = false;
           else
               Threads.increaseDepth = true;
@@ -691,7 +691,7 @@ namespace {
     // Use static evaluation difference to improve quiet move ordering (~4 Elo)
     if (is_ok((ss-1)->currentMove) && !(ss-1)->inCheck && !priorCapture)
     {
-        int bonus = std::clamp(-19 * int((ss-1)->staticEval + ss->staticEval), -1920, 1920);    // TODO: Sanmill
+        int bonus = std::clamp(-19 * int((ss-1)->staticEval + ss->staticEval), -1920, 1920);
         thisThread->mainHistory[~us][from_to((ss-1)->currentMove)] << bonus;
     }
 
@@ -701,13 +701,13 @@ namespace {
     // margin and the improving flag are used in various pruning heuristics.
     improvement =   (ss-2)->staticEval != VALUE_NONE ? ss->staticEval - (ss-2)->staticEval
                   : (ss-4)->staticEval != VALUE_NONE ? ss->staticEval - (ss-4)->staticEval
-                  :                                    156;    // TODO: Sanmill
+                  :                                    156;
     improving = improvement > 0;
 
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 426 - 252 * depth * depth)    // TODO: Sanmill
+    if (eval < alpha - 426 - 252 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -717,26 +717,26 @@ namespace {
     // Step 8. Futility pruning: child node (~40 Elo).
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
-        &&  depth < 9    // TODO: Sanmill
-        &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 280 >= beta    // TODO: Sanmill
+        &&  depth < 9
+        &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 280 >= beta
         &&  eval >= beta
-        &&  eval < 25128) // larger than VALUE_KNOWN_WIN, but smaller than TB wins    // TODO: Sanmill
+        &&  eval < 25128) // larger than VALUE_KNOWN_WIN, but smaller than TB wins
         return eval;
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (   !PvNode
         && (ss-1)->currentMove != MOVE_NULL
-        && (ss-1)->statScore < 18755    // TODO: Sanmill
+        && (ss-1)->statScore < 18755
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 19 * depth - improvement / 13 + 253 + complexity / 25    // TODO: Sanmill
+        &&  ss->staticEval >= beta - 19 * depth - improvement / 13 + 253 + complexity / 25
         && !excludedMove
         && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
     {
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth, eval and complexity of position
-        Depth R = std::min(int(eval - beta) / 168, 6) + depth / 3 + 4 - (complexity > 825);    // TODO: Sanmill
+        Depth R = std::min(int(eval - beta) / 168, 6) + depth / 3 + 4 - (complexity > 825);
 
         ss->currentMove = MOVE_NULL;
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
@@ -772,7 +772,7 @@ namespace {
         }
     }
 
-    probCutBeta = beta + 186 - 54 * improving;    // TODO: Sanmill
+    probCutBeta = beta + 186 - 54 * improving;
 
     // Step 10. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
@@ -796,7 +796,7 @@ namespace {
         while ((move = mp.next_move()) != MOVE_NONE)
             if (move != excludedMove && pos.legal(move))
             {
-                assert(pos.capture(move));    // TODO: Sanmill
+                assert(pos.capture_stage(move));
 
                 ss->currentMove = move;
                 ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck]
@@ -838,12 +838,12 @@ namespace {
     if (    cutNode
         &&  depth >= 7
         && !ttMove)
-        depth -= 2;    // TODO: Sanmill
+        depth -= 2;
 
 moves_loop: // When in check, search starts here
 
     // Step 12. A small Probcut idea, when we are in check (~4 Elo)
-    probCutBeta = beta + 391;    // TODO: Sanmill
+    probCutBeta = beta + 391;
     if (   ss->inCheck
         && !PvNode
         && depth >= 2
@@ -908,7 +908,7 @@ moves_loop: // When in check, search starts here
           (ss+1)->pv = nullptr;
 
       extension = 0;
-      capture = pos.capture(move);
+      capture = pos.capture_stage(move);
       movedPiece = pos.moved_piece(move);
       givesCheck = pos.gives_check(move);
 
@@ -970,24 +970,24 @@ moves_loop: // When in check, search starts here
 
               // Continuation history based pruning (~2 Elo)
               if (   lmrDepth < 5
-                  && history < -4405 * (depth - 1))    // TODO: Sanmill
+                  && history < -4405 * (depth - 1))
                   continue;
 
               history += 2 * thisThread->mainHistory[us][from_to(move)];
 
-              lmrDepth += history / 7278;    // TODO: Sanmill
+              lmrDepth += history / 7278;
               lmrDepth = std::max(lmrDepth, -2);
 
               // Futility pruning: parent node (~13 Elo)
               if (   !ss->inCheck
-                  && lmrDepth < 13    // TODO: Sanmill
-                  && ss->staticEval + 103 + 138 * lmrDepth <= alpha)    // TODO: Sanmill
+                  && lmrDepth < 13
+                  && ss->staticEval + 103 + 138 * lmrDepth <= alpha)
                   continue;
 
               lmrDepth = std::max(lmrDepth, 0);
 
               // Prune moves with negative SEE (~4 Elo)
-              if (!pos.see_ge(move, Value(-24 * lmrDepth * lmrDepth - 15 * lmrDepth)))    // TODO: Sanmill
+              if (!pos.see_ge(move, Value(-24 * lmrDepth * lmrDepth - 15 * lmrDepth)))
                   continue;
           }
       }
@@ -1002,7 +1002,7 @@ moves_loop: // When in check, search starts here
           // a reduced search on all the other moves but the ttMove and if the
           // result is lower than ttValue minus a margin, then we will extend the ttMove.
           if (   !rootNode
-              &&  depth >= 4 - (thisThread->completedDepth > 21) + 2 * (PvNode && tte->is_pv())    // TODO: Sanmill
+              &&  depth >= 4 - (thisThread->completedDepth > 21) + 2 * (PvNode && tte->is_pv())
               &&  move == ttMove
               && !excludedMove // Avoid recursive singular search
            /* &&  ttValue != VALUE_NONE Already implicit in the next condition */
@@ -1024,8 +1024,8 @@ moves_loop: // When in check, search starts here
 
                   // Avoid search explosion by limiting the number of double extensions
                   if (  !PvNode
-                      && value < singularBeta - 25    // TODO: Sanmill
-                      && ss->doubleExtensions <= 10)    // TODO: Sanmill
+                      && value < singularBeta - 25
+                      && ss->doubleExtensions <= 10)
                   {
                       extension = 2;
                       depth += depth < 13;
@@ -1055,15 +1055,15 @@ moves_loop: // When in check, search starts here
 
           // Check extensions (~1 Elo)
           else if (   givesCheck
-                   && depth > 10    // TODO: Sanmill
-                   && abs(ss->staticEval) > 88)    // TODO: Sanmill
+                   && depth > 10
+                   && abs(ss->staticEval) > 88)
               extension = 1;
 
           // Quiet ttMove extensions (~1 Elo)
           else if (   PvNode
                    && move == ttMove
                    && move == ss->killers[0]
-                   && (*contHist[0])[movedPiece][to_sq(move)] >= 5705)    // TODO: Sanmill
+                   && (*contHist[0])[movedPiece][to_sq(move)] >= 5705)
               extension = 1;
       }
 
@@ -1104,7 +1104,7 @@ moves_loop: // When in check, search starts here
 
       // Decrease reduction for PvNodes based on depth (~2 Elo)
       if (PvNode)
-          r -= 1 + 12 / (3 + depth);    // TODO: Sanmill
+          r -= 1 + 12 / (3 + depth);
 
       // Decrease reduction if ttMove has been singularly extended (~1 Elo)
       if (singularQuietLMR)
@@ -1116,17 +1116,17 @@ moves_loop: // When in check, search starts here
 
       // Decrease reduction if move is a killer and we have a good history (~1 Elo)
       if (move == ss->killers[0]
-          && (*contHist[0])[movedPiece][to_sq(move)] >= 3722)    // TODO: Sanmill
+          && (*contHist[0])[movedPiece][to_sq(move)] >= 3722)
           r--;
 
       ss->statScore =  2 * thisThread->mainHistory[us][from_to(move)]
                      + (*contHist[0])[movedPiece][to_sq(move)]
                      + (*contHist[1])[movedPiece][to_sq(move)]
                      + (*contHist[3])[movedPiece][to_sq(move)]
-                     - 4182;    // TODO: Sanmill
+                     - 4182;
 
       // Decrease/increase reduction for moves with a good/bad history (~25 Elo)
-      r -= ss->statScore / (11791 + 3992 * (depth > 6 && depth < 19));    // TODO: Sanmill
+      r -= ss->statScore / (11791 + 3992 * (depth > 6 && depth < 19));
 
       // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
       // We use various heuristics for the sons of a node after the first son has
@@ -1150,7 +1150,7 @@ moves_loop: // When in check, search starts here
           {
               // Adjust full depth search based on LMR results - if result
               // was good enough search deeper, if it was bad enough search shallower
-              const bool doDeeperSearch = value > (alpha + 58 + 12 * (newDepth - d));    // TODO: Sanmill
+              const bool doDeeperSearch = value > (alpha + 58 + 12 * (newDepth - d));
               const bool doEvenDeeperSearch = value > alpha + 588 && ss->doubleExtensions <= 5;
               const bool doShallowerSearch = value < bestValue + newDepth;
 
