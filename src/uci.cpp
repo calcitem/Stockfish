@@ -31,7 +31,6 @@
 #include "timeman.h"
 #include "tt.h"
 #include "uci.h"
-#include "syzygy/tbprobe.h"
 #include "nnue/evaluate_nnue.h"
 
 using namespace std;
@@ -41,7 +40,7 @@ namespace Stockfish {
 namespace {
 
   // FEN string for the initial position in standard chess
-  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";    // TODO: Sanmill
 
 
   // position() is called when the engine receives the "position" UCI command.
@@ -68,7 +67,7 @@ namespace {
         return;
 
     states = StateListPtr(new std::deque<StateInfo>(1)); // Drop the old state and create a new one
-    pos.set(fen, Options["UCI_Chess960"], &states->back(), Threads.main());
+    pos.set(fen, &states->back(), Threads.main());
 
     // Parse the move list, if any
     while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
@@ -85,7 +84,7 @@ namespace {
 
     StateListPtr states(new std::deque<StateInfo>(1));
     Position p;
-    p.set(pos.fen(), Options["UCI_Chess960"], &states->back(), Threads.main());
+    p.set(pos.fen(), &states->back(), Threads.main());
 
     Eval::NNUE::verify();
 
@@ -207,8 +206,8 @@ namespace {
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     constexpr double as[] = {   0.33677609,   -4.30175627,   33.08810557,  365.60223431};
-     constexpr double bs[] = {  -2.50471102,   14.23235405,  -14.33066859,   71.42705250 };
+     constexpr double as[] = {   0.33677609,   -4.30175627,   33.08810557,  365.60223431};    // TODO: Sanmill
+     constexpr double bs[] = {  -2.50471102,   14.23235405,  -14.33066859,   71.42705250 };    // TODO: Sanmill
 
      // Enforce that NormalizeToPawnValue corresponds to a 50% win rate at ply 64
      static_assert(UCI::NormalizeToPawnValue == int(as[0] + as[1] + as[2] + as[3]));
@@ -238,7 +237,7 @@ void UCI::loop(int argc, char* argv[]) {
   string token, cmd;
   StateListPtr states(new std::deque<StateInfo>(1));
 
-  pos.set(StartFEN, false, &states->back(), Threads.main());
+  pos.set(StartFEN, &states->back(), Threads.main());
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
@@ -290,11 +289,11 @@ void UCI::loop(int argc, char* argv[]) {
           Eval::NNUE::save_eval(filename);
       }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
-          sync_cout << "\nStockfish is a powerful chess engine for playing and analyzing."
+          sync_cout << "\nStockfish is a powerful chess engine for playing and analyzing."    // TODO: Sanmill
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
-                       "\nStockfish is normally used with a graphical user interface (GUI) and implements"
+                       "\nStockfish is normally used with a graphical user interface (GUI) and implements"    // TODO: Sanmill
                        "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                       "\nFor any further information, visit https://github.com/official-stockfish/Stockfish#readme"
+                       "\nFor any further information, visit https://github.com/official-stockfish/Stockfish#readme"    // TODO: Sanmill
                        "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n" << sync_endl;
       else if (!token.empty() && token[0] != '#')
           sync_cout << "Unknown command: '" << cmd << "'. Type help for more information." << sync_endl;
@@ -315,13 +314,8 @@ string UCI::value(Value v) {
 
   stringstream ss;
 
-  if (abs(v) < VALUE_TB_WIN_IN_MAX_PLY)
+  if (abs(v) < VALUE_MATE_IN_MAX_PLY)
       ss << "cp " << v * 100 / NormalizeToPawnValue;
-  else if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-  {
-      const int ply = VALUE_MATE_IN_MAX_PLY - 1 - std::abs(v);  // recompute ss->ply
-      ss << "cp " << (v > 0 ? 20000 - ply : -20000 + ply);
-  }
   else
       ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
@@ -348,16 +342,16 @@ string UCI::wdl(Value v, int ply) {
 /// UCI::square() converts a Square to a string in algebraic notation (g1, a7, etc.)
 
 std::string UCI::square(Square s) {
-  return std::string{ char('a' + file_of(s)), char('1' + rank_of(s)) };
+  return std::string{ char('a' + file_of(s)), char('1' + rank_of(s)) };    // TODO: Sanmill
 }
 
 
 /// UCI::move() converts a Move to a string in coordinate notation (g1f3, a7a8q).
 /// The only special case is castling where the e1g1 notation is printed in
-/// standard chess mode and in e1h1 notation it is printed in Chess960 mode.
+/// standard chess mode.     // TODO: Sanmill
 /// Internally, all castling moves are always encoded as 'king captures rook'.
 
-string UCI::move(Move m, bool chess960) {
+string UCI::move(Move m) {
 
   if (m == MOVE_NONE)
       return "(none)";
@@ -368,13 +362,7 @@ string UCI::move(Move m, bool chess960) {
   Square from = from_sq(m);
   Square to = to_sq(m);
 
-  if (type_of(m) == CASTLING && !chess960)
-      to = make_square(to > from ? FILE_G : FILE_C, rank_of(from));
-
   string move = UCI::square(from) + UCI::square(to);
-
-  if (type_of(m) == PROMOTION)
-      move += " pnbrqk"[promotion_type(m)];
 
   return move;
 }
@@ -385,11 +373,8 @@ string UCI::move(Move m, bool chess960) {
 
 Move UCI::to_move(const Position& pos, string& str) {
 
-  if (str.length() == 5)
-      str[4] = char(tolower(str[4])); // The promotion piece character must be lowercased
-
   for (const auto& m : MoveList<LEGAL>(pos))
-      if (str == UCI::move(m, pos.is_chess960()))
+      if (str == UCI::move(m))
           return m;
 
   return MOVE_NONE;

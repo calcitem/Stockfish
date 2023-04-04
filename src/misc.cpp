@@ -142,19 +142,19 @@ public:
 } // namespace
 
 
-/// engine_info() returns the full name of the current Stockfish version.
+/// engine_info() returns the full name of the current Stockfish version.    // TODO: Sanmill
 /// For local dev compiles we try to append the commit sha and commit date
 /// from git if that fails only the local compilation date is set and "nogit" is specified:
-/// Stockfish dev-YYYYMMDD-SHA
+/// Stockfish dev-YYYYMMDD-SHA    // TODO: Sanmill
 /// or
-/// Stockfish dev-YYYYMMDD-nogit
+/// Stockfish dev-YYYYMMDD-nogit    // TODO: Sanmill
 ///
 /// For releases (non dev builds) we only include the version number:
-/// Stockfish version
+/// Stockfish version    // TODO: Sanmill
 
 string engine_info(bool to_uci) {
   stringstream ss;
-  ss << "Stockfish " << version << setfill('0');
+  ss << "Stockfish " << version << setfill('0');    // TODO: Sanmill
 
   if constexpr (version == "dev")
   {
@@ -180,7 +180,7 @@ string engine_info(bool to_uci) {
   }
 
   ss << (to_uci  ? "\nid author ": " by ")
-     << "the Stockfish developers (see AUTHORS file)";
+     << "the Stockfish developers (see AUTHORS file)";    // TODO: Sanmill
 
   return ss.str();
 }

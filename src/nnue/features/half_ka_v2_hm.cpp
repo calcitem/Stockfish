@@ -27,7 +27,7 @@ namespace Stockfish::Eval::NNUE::Features {
   // Index of a feature for a given king position and another piece on some square
   template<Color Perspective>
   inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, Square ksq) {
-    return IndexType((int(s) ^ OrientTBL[Perspective][ksq]) + PieceSquareIndex[Perspective][pc] + KingBuckets[Perspective][ksq]);
+    return IndexType((int(s) ^ OrientTBL[Perspective][ksq]) + PieceSquareIndex[Perspective][pc] + KingBuckets[Perspective][ksq]);    // TODO: Sanmill
   }
 
   // Get a list of indices for active features
@@ -78,7 +78,7 @@ namespace Stockfish::Eval::NNUE::Features {
   }
 
   bool HalfKAv2_hm::requires_refresh(const StateInfo* st, Color perspective) {
-    return st->dirtyPiece.piece[0] == make_piece(perspective, KING);
+    return st->dirtyPiece.piece[0] == make_piece(perspective, KING);    // TODO: Sanmill
   }
 
 }  // namespace Stockfish::Eval::NNUE::Features

@@ -216,7 +216,7 @@ namespace Stockfish::Eval::NNUE {
     return t;
   }
 
-  constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");
+  constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");    // TODO: Sanmill
 
 
   // format_cp_compact() converts a Value into (centi)pawns and writes it in a buffer.
@@ -278,7 +278,7 @@ namespace Stockfish::Eval::NNUE {
     auto writeSquare = [&board](File file, Rank rank, Piece pc, Value value) {
 
       const int x = ((int)file) * 8;
-      const int y = (7 - (int)rank) * 3;
+      const int y = (7 - (int)rank) * 3;    // TODO: Sanmill
       for (int i = 1; i < 8; ++i)
          board[y][x+i] = board[y+3][x+i] = '-';
       for (int i = 1; i < 3; ++i)
@@ -295,8 +295,8 @@ namespace Stockfish::Eval::NNUE {
     Value base = evaluate(pos);
     base = pos.side_to_move() == WHITE ? base : -base;
 
-    for (File f = FILE_A; f <= FILE_H; ++f)
-      for (Rank r = RANK_1; r <= RANK_8; ++r)
+    for (File f = FILE_A; f <= FILE_H; ++f)    // TODO: Sanmill
+      for (Rank r = RANK_1; r <= RANK_8; ++r)    // TODO: Sanmill
       {
         Square sq = make_square(f, r);
         Piece pc = pos.piece_on(sq);
@@ -323,7 +323,7 @@ namespace Stockfish::Eval::NNUE {
       }
 
     ss << " NNUE derived piece values:\n";
-    for (int row = 0; row < 3*8+1; ++row)
+    for (int row = 0; row < 3*8+1; ++row)    // TODO: Sanmill
         ss << board[row] << '\n';
     ss << '\n';
 

@@ -28,7 +28,7 @@
 using namespace std;
 
 namespace {
-
+    // TODO: Sanmill
 const vector<string> Defaults = {
   "setoption name UCI_Chess960 value false",
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

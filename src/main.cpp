@@ -21,9 +21,7 @@
 #include "bitboard.h"
 #include "endgame.h"
 #include "position.h"
-#include "psqt.h"
 #include "search.h"
-#include "syzygy/tbprobe.h"
 #include "thread.h"
 #include "tt.h"
 #include "uci.h"
@@ -37,7 +35,6 @@ int main(int argc, char* argv[]) {
   CommandLine::init(argc, argv);
   UCI::init(Options);
   Tune::init();
-  PSQT::init();
   Bitboards::init();
   Position::init();
   Bitbases::init();

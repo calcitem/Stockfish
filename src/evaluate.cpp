@@ -15,7 +15,7 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+    // TODO: Sanmill
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
@@ -31,7 +31,6 @@
 #include "evaluate.h"
 #include "material.h"
 #include "misc.h"
-#include "pawns.h"
 #include "thread.h"
 #include "timeman.h"
 #include "uci.h"

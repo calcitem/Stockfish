@@ -382,7 +382,7 @@ namespace Stockfish::Eval::NNUE {
       // Update incrementally going back through states_to_update.
 
       // Gather all features to be updated.
-      const Square ksq = pos.square<KING>(Perspective);
+      const Square ksq = pos.square<KING>(Perspective);    // TODO: Sanmill
 
       // The size must be enough to contain the largest possible update.
       // That might depend on the feature set and generally relies on the

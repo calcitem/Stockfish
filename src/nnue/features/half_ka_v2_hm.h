@@ -37,7 +37,7 @@ namespace Stockfish::Eval::NNUE::Features {
   class HalfKAv2_hm {
 
     // unique number for each piece type on each square
-    enum {
+    enum {    // TODO: Sanmill
       PS_NONE     =  0,
       PS_W_PAWN   =  0,
       PS_B_PAWN   =  1 * SQUARE_NB,
@@ -56,10 +56,10 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // convention: W - us, B - them
       // viewed from other side, W and B are reversed
-      { PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE,
-        PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE },
-      { PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE,
-        PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE }
+      { PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE,    // TODO: Sanmill
+        PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE },    // TODO: Sanmill
+      { PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE,    // TODO: Sanmill
+        PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE }    // TODO: Sanmill
     };
 
     // Index of a feature for a given king position and another piece on some square
@@ -71,12 +71,12 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr const char* Name = "HalfKAv2_hm(Friend)";
 
     // Hash value embedded in the evaluation file
-    static constexpr std::uint32_t HashValue = 0x7f234cb8u;
+    static constexpr std::uint32_t HashValue = 0x7f234cb8u;    // TODO: Sanmill
 
     // Number of feature dimensions
     static constexpr IndexType Dimensions =
-        static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB) / 2;
-
+        static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB) / 2;    // TODO: Sanmill
+    // TODO: Sanmill
 #define B(v) (v * PS_NB)
     static constexpr int KingBuckets[COLOR_NB][SQUARE_NB] = {
       { B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
@@ -97,7 +97,7 @@ namespace Stockfish::Eval::NNUE::Features {
         B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28) }
     };
 #undef B
-
+    // TODO: Sanmill
     // Orient a square according to perspective (rotates by 180 for black)
     static constexpr int OrientTBL[COLOR_NB][SQUARE_NB] = {
       { SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,

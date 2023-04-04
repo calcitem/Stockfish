@@ -23,7 +23,6 @@
 #include "search.h"
 #include "thread.h"
 #include "uci.h"
-#include "syzygy/tbprobe.h"
 #include "tt.h"
 
 namespace Stockfish {
@@ -182,9 +181,6 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
           || std::count(limits.searchmoves.begin(), limits.searchmoves.end(), m))
           rootMoves.emplace_back(m);
 
-  if (!rootMoves.empty())
-      Tablebases::rank_root_moves(pos, rootMoves);
-
   // After ownership transfer 'states' becomes empty, so if we stop the search
   // and call 'go' again without setting a new position states.get() == nullptr.
   assert(states.get() || setupStates.get());
@@ -202,7 +198,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->nodes = th->tbHits = th->nmpMinPly = th->bestMoveChanges = 0;
       th->rootDepth = th->completedDepth = 0;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), &th->rootState, th);
+      th->rootPos.set(pos.fen(), &th->rootState, th);
       th->rootState = setupStates->back();
   }
 
@@ -228,14 +224,14 @@ Thread* ThreadPool::get_best_thread() const {
         votes[th->rootMoves[0].pv[0]] += thread_value(th);
 
     for (Thread* th : threads)
-        if (abs(bestThread->rootMoves[0].score) >= VALUE_TB_WIN_IN_MAX_PLY)
+        if (abs(bestThread->rootMoves[0].score) >= VALUE_MATE_IN_MAX_PLY)
         {
-            // Make sure we pick the shortest mate / TB conversion or stave off mate the longest
+            // Make sure we pick the shortest mate / stave off mate the longest
             if (th->rootMoves[0].score > bestThread->rootMoves[0].score)
                 bestThread = th;
         }
-        else if (   th->rootMoves[0].score >= VALUE_TB_WIN_IN_MAX_PLY
-                 || (   th->rootMoves[0].score > VALUE_TB_LOSS_IN_MAX_PLY
+        else if (   th->rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
+                 || (   th->rootMoves[0].score > VALUE_MATED_IN_MAX_PLY
                      && (   votes[th->rootMoves[0].pv[0]] > votes[bestThread->rootMoves[0].pv[0]]
                          || (   votes[th->rootMoves[0].pv[0]] == votes[bestThread->rootMoves[0].pv[0]]
                              &&   thread_value(th) * int(th->rootMoves[0].pv.size() > 2)
