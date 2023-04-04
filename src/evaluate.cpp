@@ -34,7 +34,6 @@
 #include "thread.h"
 #include "timeman.h"
 #include "uci.h"
-#include "incbin/incbin.h"
 #include "nnue/evaluate_nnue.h"
 
 // Macro to embed the default efficiently updatable neural network (NNUE) file
@@ -965,78 +964,122 @@ namespace {
   template<Tracing T>
   Value Evaluation<T>::value() {
 
-    assert(!pos.checkers());
+    Value value = VALUE_ZERO;
 
-    // Probe the material hash table
-    me = Material::probe(pos);
+    int pieceInHandDiffCount;
+    int pieceOnBoardDiffCount;
+    const int pieceToRemoveDiffCount = pos.piece_to_remove_count(WHITE) -
+                                       pos.piece_to_remove_count(BLACK);
 
-    // If we have a specialized evaluation function for the current material
-    // configuration, call it and return.
-    if (me->specialized_eval_exists())
-        return me->evaluate(pos);
+    switch (pos.get_phase()) {
+    case Phase::none:
+    case Phase::ready:
+        break;
 
-    // Initialize score by reading the incrementally updated scores included in
-    // the position object (material + piece square tables) and the material
-    // imbalance. Score is computed internally from the white point of view.
-    Score score = pos.psq_score() + me->imbalance();
+    case Phase::placing:
+        if (gameOptions.getConsiderMobility()) {
+            value += pos.get_mobility_diff();
+        }
 
-    // Probe the pawn hash table
-    pe = Pawns::probe(pos);
-    score += pe->pawn_score(WHITE) - pe->pawn_score(BLACK);
+        pieceInHandDiffCount = pos.piece_in_hand_count(WHITE) -
+                               pos.piece_in_hand_count(BLACK);
+        value += VALUE_EACH_PIECE_INHAND * pieceInHandDiffCount;
 
-    // Early exit if score is high
-    auto lazy_skip = [&](Value lazyThreshold) {
-        return abs(mg_value(score) + eg_value(score)) >   lazyThreshold
-                                                        + std::abs(pos.this_thread()->bestValue) * 5 / 4
-                                                        + pos.non_pawn_material() / 32;
-    };
+        pieceOnBoardDiffCount = pos.piece_on_board_count(WHITE) -
+                                pos.piece_on_board_count(BLACK);
+        value += VALUE_EACH_PIECE_ONBOARD * pieceOnBoardDiffCount;
 
-    if (lazy_skip(LazyThreshold1))
-        goto make_v;
+        switch (pos.get_action()) {
+        case Action::select:
+        case Action::place:
+            break;
+        case Action::remove:
+            value += VALUE_EACH_PIECE_PLACING_NEEDREMOVE * pieceToRemoveDiffCount;
+            break;
+        case Action::none:
+            break;
+        }
 
-    // Main evaluation begins here
-    initialize<WHITE>();
-    initialize<BLACK>();
+        break;
 
-    // Pieces evaluated first (also populates attackedBy, attackedBy2).
-    // Note that the order of evaluation of the terms is left unspecified.
-    score +=  pieces<WHITE, KNIGHT>() - pieces<BLACK, KNIGHT>()
-            + pieces<WHITE, BISHOP>() - pieces<BLACK, BISHOP>()
-            + pieces<WHITE, ROOK  >() - pieces<BLACK, ROOK  >()
-            + pieces<WHITE, QUEEN >() - pieces<BLACK, QUEEN >();
+    case Phase::moving:
+        if (gameOptions.getConsiderMobility()) {
+            value += pos.get_mobility_diff();
+        }
 
-    score += mobility[WHITE] - mobility[BLACK];
+        value += (pos.piece_on_board_count(WHITE) -
+                  pos.piece_on_board_count(BLACK)) *
+                 VALUE_EACH_PIECE_ONBOARD;
 
-    // More complex interactions that require fully populated attack bitboards
-    score +=  king<   WHITE>() - king<   BLACK>()
-            + passed< WHITE>() - passed< BLACK>();
+        switch (pos.get_action()) {
+        case Action::select:
+        case Action::place:
+            break;
+        case Action::remove:
+            value += VALUE_EACH_PIECE_MOVING_NEEDREMOVE * pieceToRemoveDiffCount;
+            break;
+        case Action::none:
+            break;
+        }
 
-    if (lazy_skip(LazyThreshold2))
-        goto make_v;
+        break;
 
-    score +=  threats<WHITE>() - threats<BLACK>()
-            + space<  WHITE>() - space<  BLACK>();
+    case Phase::gameOver:
+        if (rule.pieceCount == 12 && (pos.piece_on_board_count(WHITE) +
+                                          pos.piece_on_board_count(BLACK) >=
+                                      SQUARE_NB)) {
+            if (rule.boardFullAction == BoardFullAction::firstPlayerLose) {
+                value -= VALUE_MATE;
+            } else if (rule.boardFullAction == BoardFullAction::agreeToDraw) {
+                value = VALUE_DRAW;
+            } else {
+                assert(0);
+            }
+        } else if (pos.get_action() == Action::select &&
+                   pos.is_all_surrounded(pos.side_to_move()) &&
+                   rule.stalemateAction ==
+                       StalemateAction::endWithStalemateLoss) {
+            const Value delta = pos.side_to_move() == WHITE ? -VALUE_MATE :
+                                                              VALUE_MATE;
+            value += delta;
+        } else if (pos.piece_on_board_count(WHITE) < rule.piecesAtLeastCount) {
+            value -= VALUE_MATE;
+        } else if (pos.piece_on_board_count(BLACK) < rule.piecesAtLeastCount) {
+            value += VALUE_MATE;
+        }
 
-make_v:
-    // Derive single value from mg and eg parts of score
-    Value v = winnable(score);
-
-    // In case of tracing add all remaining individual evaluation terms
-    if constexpr (T)
-    {
-        Trace::add(MATERIAL, pos.psq_score());
-        Trace::add(IMBALANCE, me->imbalance());
-        Trace::add(PAWN, pe->pawn_score(WHITE), pe->pawn_score(BLACK));
-        Trace::add(MOBILITY, mobility[WHITE], mobility[BLACK]);
+        break;
     }
 
-    // Evaluation grain
-    v = (v / 16) * 16;
+    if (pos.side_to_move() == BLACK) {
+        value = -value;
+    }
 
-    // Side to move point of view
-    v = (pos.side_to_move() == WHITE ? v : -v);
+#ifdef EVAL_DRAW_WHEN_NOT_KNOWN_WIN_IF_MAY_FLY
+    if (pos.get_phase() == Phase::moving && rule.mayFly &&
+        !rule.hasDiagonalLines) {
+        int piece_on_board_count_future_white = pos.piece_on_board_count(WHITE);
+        int piece_on_board_count_future_black = pos.piece_on_board_count(BLACK);
 
-    return v;
+        if (pos.side_to_move() == WHITE) {
+            piece_on_board_count_future_black -= pos.piece_to_remove_count(WHITE) - pos.piece_to_remove_count(BLACK);
+        }
+
+        if (pos.side_to_move() == BLACK) {
+            piece_on_board_count_future_white -= pos.piece_to_remove_count(BLACK) - pos.piece_to_remove_count(WHITE);;
+        }
+
+        // TODO(calcitem): flyPieceCount?
+        if (piece_on_board_count_future_black == 3 ||
+            piece_on_board_count_future_white == 3) {
+            if (abs(value) < VALUE_KNOWN_WIN) {
+                value = VALUE_DRAW;
+            }
+        }
+    }
+#endif
+
+    return value;
   }
 
 } // namespace Eval
@@ -1047,50 +1090,7 @@ make_v:
 
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
-  Value v;
-  Value psq = pos.psq_eg_stm();
-
-  // We use the much less accurate but faster Classical eval when the NNUE
-  // option is set to false. Otherwise we use the NNUE eval unless the
-  // PSQ advantage is decisive and several pieces remain. (~3 Elo)
-  bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1781);
-
-  if (useClassical)
-      v = Evaluation<NO_TRACE>(pos).value();
-  else
-  {
-      int nnueComplexity;
-      int scale = 1001 + 5 * pos.count<PAWN>() + 61 * pos.non_pawn_material() / 4096;
-
-      Color stm = pos.side_to_move();
-      Value optimism = pos.this_thread()->optimism[stm];
-
-      Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
-
-      // Blend nnue complexity with (semi)classical complexity
-      nnueComplexity = (  406 * nnueComplexity
-                        + (424 + optimism) * abs(psq - nnue)
-                        ) / 1024;
-
-      // Return hybrid NNUE complexity to caller
-      if (complexity)
-          *complexity = nnueComplexity;
-
-      optimism = optimism * (272 + nnueComplexity) / 256;
-      v = (nnue * scale + optimism * (scale - 748)) / 1024;
-  }
-
-  // Damp down the evaluation linearly when shuffling
-  v = v * (200 - pos.rule50_count()) / 214;
-
-  // Guarantee evaluation does not hit the tablebase range
-  v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
-
-  // When not using NNUE, return classical complexity to caller
-  if (complexity && useClassical)
-      *complexity = abs(v - psq);
-
-  return v;
+    return Evaluation(pos).value();
 }
 
 /// trace() is like evaluate(), but instead of returning a value, it returns
@@ -1125,13 +1125,7 @@ std::string Eval::trace(Position& pos) {
      << "+------------+-------------+-------------+-------------+\n"
      << "|   Material | " << Term(MATERIAL)
      << "|  Imbalance | " << Term(IMBALANCE)
-     << "|      Pawns | " << Term(PAWN)
-     << "|    Knights | " << Term(KNIGHT)
-     << "|    Bishops | " << Term(BISHOP)
-     << "|      Rooks | " << Term(ROOK)
-     << "|     Queens | " << Term(QUEEN)
      << "|   Mobility | " << Term(MOBILITY)
-     << "|King safety | " << Term(KING)
      << "|    Threats | " << Term(THREAT)
      << "|     Passed | " << Term(PASSED)
      << "|      Space | " << Term(SPACE)
