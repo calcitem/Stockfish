@@ -40,7 +40,7 @@ namespace Stockfish {
 namespace {
 
   // FEN string for the initial position in standard chess
-  const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";    // TODO: Sanmill
+  const char* StartFEN = "*******/********/******** w p p 0 9 0 9 0 0 1";    // TODO: Sanmill
 
 
   // position() is called when the engine receives the "position" UCI command.

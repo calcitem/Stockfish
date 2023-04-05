@@ -245,8 +245,6 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
     Square sq = SQ_A1;
     std::istringstream ss(fenStr);
 
-    std::memset(this, 0, sizeof(Position));
-
     ss >> std::noskipws;
 
     // 1. Piece placement
@@ -328,6 +326,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 #endif
 
     thisThread = th;
+    set_state();
 
     return *this;
 }
@@ -343,6 +342,7 @@ void Position::set_state() const {
   st->key = 0;
   st->material[WHITE] = st->material[BLACK] = VALUE_ZERO;
 
+  #if 0
   for (Bitboard b = pieces(); b; )
   {
       Square s = pop_lsb(b);
@@ -351,6 +351,7 @@ void Position::set_state() const {
 // TODO: Sanmill
       st->material[color_of(pc)] += PieceValue;
   }
+  #endif
 
   if (sideToMove == BLACK)
       st->key ^= Zobrist::side;
