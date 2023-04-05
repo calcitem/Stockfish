@@ -535,7 +535,7 @@ namespace {
     Move ttMove, move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue, probCutBeta;
-    bool givesCheck, improving;
+    bool improving;
     bool moveCountPruning;
     Piece movedPiece;
     int moveCount, captureCount, quietCount, improvement;
@@ -747,8 +747,6 @@ namespace {
         &&  depth >= 7
         && !ttMove)
         depth -= 2;
-
-moves_loop: // When in check, search starts here
 
     Move countermove = prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : MOVE_NONE;
 
@@ -1399,7 +1397,6 @@ moves_loop: // When in check, search starts here
 
     Color us = pos.side_to_move();
     Thread* thisThread = pos.this_thread();
-    PieceType captured;
 
     int bonus1 = stat_bonus(depth + 1);
 

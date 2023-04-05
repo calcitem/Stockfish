@@ -71,7 +71,7 @@ MovePicker::MovePicker(Position& p, Move ttm, Depth d,
 }
 
 /// MovePicker constructor for quiescence search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d,
+MovePicker::MovePicker(Position& p, Move ttm, Depth d,
                                                              Square rs)
            : pos(p), ttMove(ttm), recaptureSquare(rs), depth(d)
 {

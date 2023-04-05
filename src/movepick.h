@@ -120,7 +120,7 @@ public:
   MovePicker(MovePicker&) = delete;
   MovePicker& operator=(const MovePicker&) = delete;
   MovePicker(Position&, Move, Depth, Move,const Move*);
-  MovePicker(const Position&, Move, Depth, Square);
+  MovePicker(Position&, Move, Depth, Square);
   Move next_move(bool skipQuiets = false);
 
   Bitboard threatenedPieces;
@@ -131,7 +131,7 @@ private:
   ExtMove* begin() { return cur; }
   ExtMove* end() { return endMoves; }
 
-  const Position& pos;
+  Position& pos;
   Move ttMove;
   ExtMove refutations[3], *cur, *endMoves, *endBadCaptures;
   int stage;
