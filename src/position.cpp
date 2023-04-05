@@ -585,26 +585,32 @@ void Position::do_move(Move m, StateInfo& newSt) {
 /// Position::undo_move() unmakes a move. When it returns, the position should
 /// be restored to exactly the same state as before the move was made.
 
-void Position::undo_move(Move m) {
+void Position::undo_move(Move m)
+{
 
   assert(is_ok(m));
 
-  sideToMove = ~sideToMove;
+  sideToMove = st->previous->sideToMove;
 
   Color us = sideToMove;
+  Color them = ~us;
   Square from = from_sq(m);
   Square to = to_sq(m);
   Piece pc = piece_on(to);
 
-      move_piece(to, from); // Put the piece back at the source square
+  const MoveType mt = type_of(m);
 
-      if (st->capturedPiece)
-      {
-          Square capsq = to;
-
-          put_piece(st->capturedPiece, capsq); // Restore the captured piece
-      }
-
+  switch (mt) {
+  case MOVETYPE_REMOVE:
+      put_piece(to);
+      break;
+  case MOVETYPE_MOVE:
+      move_piece(to, from);
+      break;
+  case MOVETYPE_PLACE:
+      remove_piece(to);
+      break;
+  }
 
   // Finally point our state pointer back to the previous state
   st = st->previous;
