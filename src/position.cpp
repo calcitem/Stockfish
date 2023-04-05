@@ -707,7 +707,7 @@ bool Position::see_ge(Move m, Value threshold) const {
 
 bool Position::is_draw(int ply) const {
 
-  if (st->rule50 > 99 && (MoveList<LEGAL>(*this).size()))
+  if (st->rule50 > 99) // TODO: Sanmill: (MoveList<LEGAL>(*this).size())
       return true;
 
   // Return a draw score if a position repeats once earlier but strictly
