@@ -288,7 +288,7 @@ enum Piece : uint8_t {
 
 using Depth = int8_t;
 
-enum : int { DEPTH_NONE = 0, DEPTH_OFFSET = DEPTH_NONE };
+enum : int { DEPTH_NONE = 0, DEPTH_OFFSET = -7 };
 
 enum Square : int {
     SQ_0 = 0,

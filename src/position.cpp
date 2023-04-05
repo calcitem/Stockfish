@@ -172,6 +172,11 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
     return os;
 }
 
+// TODO: Sanmill
+Position::Position()
+{
+    reset();
+}
 
 // Marcel van Kervinck's cuckoo algorithm for fast detection of "upcoming repetition"
 // situations. Description of the algorithm in the following paper:
@@ -238,6 +243,8 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
        7) Fullmove number. The number of the full move. It starts at 1, and is
           incremented after White's move.
     */
+
+
 
    st = si;
 
@@ -821,10 +828,12 @@ bool Position::pos_is_ok() const {
       || popcount(pieces(BLACK)) > 16)
       assert(0 && "pos_is_ok: Bitboards");
 
+  #if 0
   for (Piece pc : Pieces)
       if (   pieceCount[pc] != popcount(pieces(color_of(pc), type_of(pc)))
           || pieceCount[pc] != std::count(board, board + SQUARE_NB, pc))
           assert(0 && "pos_is_ok: Pieces");
+  #endif
 
   return true;
 }
@@ -836,7 +845,7 @@ bool Position::pos_is_ok() const {
 bool Position::reset()
 {
     gamePly = 0;
-    st->rule50 = 0;
+    //st->rule50 = 0;
 
     phase = Phase::ready;
     set_side_to_move(WHITE);
@@ -849,7 +858,7 @@ bool Position::reset()
     memset(byTypeBB, 0, sizeof(byTypeBB));
     memset(byColorBB, 0, sizeof(byColorBB));
 
-    st->key = 0;
+    //st->key = 0;
 
     pieceOnBoardCount[WHITE] = pieceOnBoardCount[BLACK] = 0;
     pieceInHandCount[WHITE] = pieceInHandCount[BLACK] = rule.pieceCount;

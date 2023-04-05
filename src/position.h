@@ -74,7 +74,7 @@ class Position {
 public:
   static void init();
 
-  Position() = default;
+  Position();
   Position(const Position&) = delete;
   Position& operator=(const Position&) = delete;
 
@@ -149,7 +149,7 @@ private:
   Piece board[SQUARE_NB];
   Bitboard byTypeBB[PIECE_TYPE_NB];
   Bitboard byColorBB[COLOR_NB];
-  int pieceCount[PIECE_NB];
+  //int pieceCount[PIECE_NB]; // TODO: Sanmill
   Thread* thisThread;
   StateInfo* st;
   int gamePly;
@@ -304,7 +304,15 @@ inline Bitboard Position::pieces(Color c, PieceType pt1, PieceType pt2) const {
 }
 
 template<PieceType Pt> inline int Position::count(Color c) const {
-  return pieceCount[make_piece(c, Pt)]; // TODO: Sanmill
+  if (Pt == ON_BOARD) {
+      return pieceOnBoardCount[c];
+  }
+
+  if (Pt == IN_HAND) {
+      return pieceInHandCount[c];
+  }
+
+  return 0;
 }
 
 template<PieceType Pt> inline int Position::count() const {
@@ -356,8 +364,8 @@ inline void Position::put_piece(Piece pc, Square s) {
   board[s] = pc;
   byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
   byColorBB[color_of(pc)] |= s;
-  pieceCount[pc]++;
-  pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+  //pieceCount[pc]++;
+  //pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
 }
 
 inline void Position::remove_piece(Square s) {
@@ -367,8 +375,8 @@ inline void Position::remove_piece(Square s) {
   byTypeBB[type_of(pc)] ^= s;
   byColorBB[color_of(pc)] ^= s;
   board[s] = NO_PIECE;
-  pieceCount[pc]--;
-  pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+  //pieceCount[pc]--;
+  //pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
 }
 
 inline void Position::move_piece(Square from, Square to) {
