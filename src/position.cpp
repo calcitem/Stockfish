@@ -859,7 +859,7 @@ bool Position::reset()
 
     mobilityDiff = 0;
 
-    MoveList<LEGAL>::create();
+    //MoveList<LEGAL>::create();
     create_mill_table();
     currentSquare = SQ_0;
 

@@ -81,7 +81,7 @@ std::string square(Square s);
 std::string move(Move m);
 std::string pv(const Position& pos, Depth depth);
 std::string wdl(Value v, int ply);
-Move to_move(const Position& pos, std::string& str);
+Move to_move(Position& pos, std::string& str);
 
 } // namespace UCI
 

@@ -25,7 +25,7 @@
 
 namespace Stockfish {
 
-namespace {
+
 
     /// generate<MOVE> generates all moves.
     /// Returns a pointer to the end of the move moves.
@@ -175,6 +175,6 @@ namespace {
         Mills::move_priority_list_shuffle();
     }
     #endif
-}
+
 
 } // namespace Stockfish

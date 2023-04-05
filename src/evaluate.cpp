@@ -189,11 +189,6 @@ using namespace Trace;
 
 namespace {
 
-  // Threshold for lazy and space evaluation
-  constexpr Value LazyThreshold1    =  Value(3622);
-  constexpr Value LazyThreshold2    =  Value(1962);
-  constexpr Value SpaceThreshold    =  Value(11551);
-
   // Evaluation class computes and stores attacks tables and other working data
   template<Tracing T>
   class Evaluation {
