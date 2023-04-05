@@ -188,7 +188,6 @@ enum Value : int8_t {
     VALUE_MATE_IN_MAX_PLY = VALUE_MATE - MAX_PLY,
     VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-    PieceValue = 5,
     VALUE_EACH_PIECE = PieceValue,
     VALUE_EACH_PIECE_INHAND = VALUE_EACH_PIECE,
     VALUE_EACH_PIECE_ONBOARD = VALUE_EACH_PIECE,
@@ -203,6 +202,9 @@ enum Value : int8_t {
                             VALUE_EACH_PIECE_INHAND) +
                            1,
     VALUE_MOVING_WINDOW = VALUE_EACH_PIECE_MOVING_NEEDREMOVE + 1,
+};
+
+constexpr Value PieceValue = 5;
 };
 
 enum Rating : int8_t {

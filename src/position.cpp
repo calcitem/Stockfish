@@ -32,22 +32,65 @@
 #include "tt.h"
 #include "uci.h"
 
+#include "mills.h"
+#include "option.h"
+
 using std::string;
 
 namespace Stockfish {
 
 namespace Zobrist {
-
-  Key psq[PIECE_NB][SQUARE_NB];    // TODO: Sanmill
+  constexpr int KEY_MISC_BIT = 2;
+  Key psq[PIECE_NB][SQUARE_EXT_NB];    // TODO: Sanmill
   Key side;
 }
 
 namespace {
 
-constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");    // TODO: Sanmill
+string PieceToChar(Piece p)
+{
+    if (p == NO_PIECE) {
+        return "*";
+    }
 
-constexpr Piece Pieces[] = { W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
-                             B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING };    // TODO: Sanmill
+    if (p == BAN_PIECE) {
+        return "X";
+    }
+
+    if (W_PIECE <= p && p <= W_PIECE_12) {
+        return "O";
+    }
+
+    if (B_PIECE <= p && p <= B_PIECE_12) {
+        return "@";
+    }
+
+    return "*";
+}
+
+Piece CharToPiece(char ch) noexcept
+{
+    if (ch == '*') {
+        return NO_PIECE;
+    }
+
+    if (ch == 'O') {
+        return W_PIECE;
+    }
+
+    if (ch == '@') {
+        return B_PIECE;
+    }
+
+    if (ch == 'X') {
+        return BAN_PIECE;
+    }
+
+    return NO_PIECE;
+}
+
+constexpr Piece Pieces[] = {NO_PIECE, W_PIECE, B_PIECE,
+                                    BAN_PIECE};
 } // namespace
 
 
@@ -55,25 +98,78 @@ constexpr Piece Pieces[] = { W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING
 
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
-  os << "\n +---+---+---+---+---+---+---+---+\n";
+    /*
+        X --- X --- X
+        |\    |    /|
+        | X - X - X |
+        | |\  |  /| |
+        | | X-X-X | |
+        X-X-X   X-X-X
+        | | X-X-X | |
+        | |/  |  \| |
+        | X - X - X |
+        |/    |    \|
+        X --- X --- X
+    */
 
-  for (Rank r = RANK_8; r >= RANK_1; --r)    // TODO: Sanmill
-  {
-      for (File f = FILE_A; f <= FILE_H; ++f)    // TODO: Sanmill
-          os << " | " << PieceToChar[pos.piece_on(make_square(f, r))];
+    /*
+        31 ----- 24 ----- 25
+        | \       |      / |
+        |  23 -- 16 -- 17  |
+        |  | \    |   / |  |
+        |  |  15 08 09  |  |
+        30-22-14    10-18-26
+        |  |  13 12 11  |  |
+        |  | /    |   \ |  |
+        |  21 -- 20 -- 19  |
+        | /       |     \  |
+        29 ----- 28 ----- 27
+    */
 
-      os << " | " << (1 + r) << "\n +---+---+---+---+---+---+---+---+\n";    // TODO: Sanmill
-  }
+#define P(s) PieceToChar(pos.piece_on(Square(s)))
 
-  os << "   a   b   c   d   e   f   g   h\n"
-     << "\nFen: " << pos.fen() << "\nKey: " << std::hex << std::uppercase
-     << std::setfill('0') << std::setw(16) << pos.key()
-     << std::setfill(' ') << std::dec << "\nCheckers: ";
+    if (rule.hasDiagonalLines) {
+        os << "\n";
+        os << P(31) << " --- " << P(24) << " --- " << P(25) << "\n";
+        os << "|\\    |    /|\n";
+        os << "| " << P(23) << " - " << P(16) << " - " << P(17) << " |\n";
+        os << "| |\\  |  /| |\n";
+        os << "| | " << P(15) << "-" << P(8) << "-" << P(9) << " | |\n";
+        os << P(30) << "-" << P(22) << "-" << P(14) << "   " << P(10) << "-"
+           << P(18) << "-" << P(26) << "\n";
+        os << "| | " << P(13) << "-" << P(12) << "-" << P(11) << " | |\n";
+        os << "| |/  |  \\| |\n";
+        os << "| " << P(21) << " - " << P(20) << " - " << P(19) << " |\n";
+        os << "|/    |    \\|\n";
+        os << P(29) << " --- " << P(28) << " --- " << P(27) << "\n";
+    } else {
+        os << "\n";
+        os << P(31) << " --- " << P(24) << " --- " << P(25) << "\n";
+        os << "|     |     |\n";
+        os << "| " << P(23) << " - " << P(16) << " - " << P(17) << " |\n";
+        os << "| |   |   | |\n";
+        os << "| | " << P(15) << "-" << P(8) << "-" << P(9) << " | |\n";
+        os << P(30) << "-" << P(22) << "-" << P(14) << "   " << P(10) << "-"
+           << P(18) << "-" << P(26) << "\n";
+        os << "| | " << P(13) << "-" << P(12) << "-" << P(11) << " | |\n";
+        os << "| |   |   | |\n";
+        os << "| " << P(21) << " - " << P(20) << " - " << P(19) << " |\n";
+        os << "|     |     |\n";
+        os << P(29) << " --- " << P(28) << " --- " << P(27) << "\n";
+    }
 
-  for (Bitboard b = pos.checkers(); b; )
-      os << UCI::square(pop_lsb(b)) << " ";
+#undef P
 
-  return os;
+    const auto fill = os.fill();
+    const auto flags = os.flags();
+
+    os << "\nFen: " << pos.fen() << "\nKey: " << std::hex << std::uppercase
+       << std::setfill('0') << std::setw(16) << pos.key() << std::endl;
+
+    os.flags(flags);
+    os.fill(fill);
+
+    return os;
 }
 
 
@@ -94,38 +190,15 @@ Move cuckooMove[8192];
 
 void Position::init() {
 
-  PRNG rng(1070372);
+    PRNG rng(1070372);
 
-  for (Piece pc : Pieces)
-      for (Square s = SQ_A1; s <= SQ_H8; ++s)    // TODO: Sanmill
-          Zobrist::psq[pc][s] = rng.rand<Key>();
+    for (const PieceType pt : PieceTypes)
+        for (Square s = SQ_BEGIN; s < SQ_END; ++s)
+            Zobrist::psq[pt][s] = rng.rand<Key>() << Zobrist::KEY_MISC_BIT >>
+                                  Zobrist::KEY_MISC_BIT;
 
-  Zobrist::side = rng.rand<Key>();
-    // TODO: Sanmill
-
-  // Prepare the cuckoo tables
-  std::memset(cuckoo, 0, sizeof(cuckoo));
-  std::memset(cuckooMove, 0, sizeof(cuckooMove));
-  [[maybe_unused]] int count = 0;
-  for (Piece pc : Pieces)
-      for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
-          for (Square s2 = Square(s1 + 1); s2 <= SQ_H8; ++s2)
-              if ((type_of(pc) != PAWN) && (attacks_bb(type_of(pc), s1, 0) & s2))
-              {
-                  Move move = make_move(s1, s2);
-                  Key key = Zobrist::psq[pc][s1] ^ Zobrist::psq[pc][s2] ^ Zobrist::side;
-                  int i = H1(key);
-                  while (true)
-                  {
-                      std::swap(cuckoo[i], key);
-                      std::swap(cuckooMove[i], move);
-                      if (move == MOVE_NONE) // Arrived at empty slot?
-                          break;
-                      i = (i == H1(key)) ? H2(key) : H1(key); // Push victim to alternative slot
-                  }
-                  count++;
-             }
-  assert(count == 3668);
+    Zobrist::side = rng.rand<Key>() << Zobrist::KEY_MISC_BIT >>
+                    Zobrist::KEY_MISC_BIT;
 }
 
 
@@ -134,138 +207,130 @@ void Position::init() {
 /// this is assumed to be the responsibility of the GUI.
     // TODO: Sanmill
 Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
-/*
-   A FEN string defines a particular position using only the ASCII character set.
+ /*
+       A FEN string defines a particular position using only the ASCII character
+       set.
 
-   A FEN string contains six fields separated by a space. The fields are:
+       A FEN string contains six fields separated by a space. The fields are:
 
-   1) Piece placement (from white's perspective). Each rank is described, starting
-      with rank 8 and ending with rank 1. Within each rank, the contents of each
-      square are described from file A through file H. Following the Standard
-      Algebraic Notation (SAN), each piece is identified by a single letter taken
-      from the standard English names. White pieces are designated using upper-case
-      letters ("PNBRQK") whilst Black uses lowercase ("pnbrqk"). Blank squares are
-      noted using digits 1 through 8 (the number of blank squares), and "/"
-      separates ranks.
+       1) Piece placement. Each rank is described, starting
+          with rank 1 and ending with rank 8. Within each rank, the contents of
+       each square are described from file A through file C. Following the
+       Standard Algebraic Notation (SAN), each piece is identified by a single
+       letter taken from the standard English names. White pieces are designated
+       using "O" whilst Black uses "@". Blank uses "*". Banned uses "X". noted
+       using digits 1 through 8 (the number of blank squares), and "/" separates
+       ranks.
 
-   2) Active color. "w" means white moves next, "b" means black.
+       2) Active color. "w" means white moves next, "b" means black.
 
-   3) Halfmove clock. This is the number of halfmoves since the last pawn advance
-      or capture. This is used to determine if a draw can be claimed under the
-      fifty-move rule.
+       3) Phrase.
 
-   6) Fullmove number. The number of the full move. It starts at 1, and is
-      incremented after Black's move.
-*/
+       4) Action.
 
-  unsigned char col, row, token;
-  size_t idx;
-  Square sq = SQ_A8;    // TODO: Sanmill
-  std::istringstream ss(fenStr);
+       5) White on board/White in hand/Black on board/Black in hand/need to
+       remove
 
-  std::memset(this, 0, sizeof(Position));
-  std::memset(si, 0, sizeof(StateInfo));
-  st = si;
+       6) Halfmove clock. This is the number of halfmoves since the last
+          capture. This is used to determine if a draw can be claimed under the
+          N-move rule.
 
-  ss >> std::noskipws;
+       7) Fullmove number. The number of the full move. It starts at 1, and is
+          incremented after White's move.
+    */
 
-  // 1. Piece placement
-  while ((ss >> token) && !isspace(token))
-  {
-      if (isdigit(token))
-          sq += (token - '0') * EAST; // Advance the given number of files
+   st = si;
 
-      else if (token == '/')
-          sq += 2 * SOUTH;
+    unsigned char token = '\0';
+    Square sq = SQ_A1;
+    std::istringstream ss(fenStr);
 
-      else if ((idx = PieceToChar.find(token)) != string::npos) {
-          put_piece(Piece(idx), sq);
-          ++sq;
-      }
-  }
+    std::memset(this, 0, sizeof(Position));
 
-  // 2. Active color
-  ss >> token;
-  sideToMove = (token == 'w' ? WHITE : BLACK);
-  ss >> token;
-    // TODO: Sanmill
-  // 3. Castling availability. Compatible with 3 standards: Normal FEN standard,
-  // Shredder-FEN that uses the letters of the columns on which the rooks began
-  // the game instead of KQkq and also X-FEN standard that, in case of Chess960,
-  // if an inner rook is associated with the castling right, the castling tag is
-  // replaced by the file letter of the involved rook, as for the Shredder-FEN.
-  while ((ss >> token) && !isspace(token))
-  {
-      Square rsq;
-      Color c = islower(token) ? BLACK : WHITE;
-      Piece rook = make_piece(c, ROOK);
+    ss >> std::noskipws;
 
-      token = char(toupper(token));
+    // 1. Piece placement
+    while ((ss >> token) && !isspace(token)) {
+        if (token == 'O' || token == '@' || token == 'X') {
+            put_piece(CharToPiece(token), sq);
+            ++sq;
+        }
+        if (token == '*') {
+            ++sq;
+        }
+    }
 
-      if (token == 'K')
-          for (rsq = relative_square(c, SQ_H1); piece_on(rsq) != rook; --rsq) {}
+    // 2. Active color
+    ss >> token;
+    sideToMove = (token == 'w' ? WHITE : BLACK);
+    them = ~sideToMove; // Note: Stockfish do not need to set them
 
-      else if (token == 'Q')
-          for (rsq = relative_square(c, SQ_A1); piece_on(rsq) != rook; ++rsq) {}
+    // 3. Phrase
+    ss >> token;
+    ss >> token;
 
-      else if (token >= 'A' && token <= 'H')
-          rsq = make_square(File(token - 'A'), relative_rank(c, RANK_1));
+    switch (token) {
+    case 'r':
+        phase = Phase::ready;
+        break;
+    case 'p':
+        phase = Phase::placing;
+        break;
+    case 'm':
+        phase = Phase::moving;
+        break;
+    case 'o':
+        phase = Phase::gameOver;
+        break;
+    default:
+        phase = Phase::none;
+    }
 
-      else
-          continue;
+    // 4. Action
+    ss >> token;
+    ss >> token;
 
-      set_castling_right(c, rsq);
-  }
+    switch (token) {
+    case 'p':
+        action = Action::place;
+        break;
+    case 's':
+        action = Action::select;
+        break;
+    case 'r':
+        action = Action::remove;
+        break;
+    default:
+        action = Action::none;
+    }
 
-  // 4. En passant square.
-  // Ignore if square is invalid or not on side to move relative rank 6.
-  bool enpassant = false;
+    // 5. White on board / White in hand / Black on board / Black in hand /
+    // White need to remove / Black need to remove
+    ss >> std::skipws >> pieceOnBoardCount[WHITE] >> pieceInHandCount[WHITE] >>
+        pieceOnBoardCount[BLACK] >> pieceInHandCount[BLACK] >>
+        pieceToRemoveCount[WHITE] >> pieceToRemoveCount[BLACK];
 
-  if (   ((ss >> col) && (col >= 'a' && col <= 'h'))
-      && ((ss >> row) && (row == (sideToMove == WHITE ? '6' : '3'))))
-  {
-      st->epSquare = make_square(File(col - 'a'), Rank(row - '1'));
+    // 6-7. Halfmove clock and fullmove number
+    ss >> std::skipws >> st->rule50 >> gamePly;
 
-      // En passant square will be considered only if
-      // a) side to move have a pawn threatening epSquare
-      // b) there is an enemy pawn in front of epSquare
-      // c) there is no piece on epSquare or behind epSquare
-      enpassant = pawn_attacks_bb(~sideToMove, st->epSquare) & pieces(sideToMove, PAWN)
-               && (pieces(~sideToMove, PAWN) & (st->epSquare + pawn_push(~sideToMove)))
-               && !(pieces() & (st->epSquare | (st->epSquare + pawn_push(sideToMove))));
-  }
+    // Convert from fullmove starting from 1 to gamePly starting from 0,
+    // handle also common incorrect FEN with fullmove = 0.
+    gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
 
-  if (!enpassant)
-      st->epSquare = SQ_NONE;
+    // For Mill only
+    check_if_game_is_over();
+#if 0
+    // It doesn't work
+    if (pieceToRemoveCount[sideToMove] == 1) {
+        action = Action::remove;
+        isStalemateRemoving = true;
+    }
+#endif
 
-  // 5-6. Halfmove clock and fullmove number
-  ss >> std::skipws >> st->rule50 >> gamePly;
+    thisThread = th;
 
-  // Convert from fullmove starting from 1 to gamePly starting from 0,
-  // handle also common incorrect FEN with fullmove = 0.
-  gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
-
-  thisThread = th;
-  set_state();
-
-  assert(pos_is_ok());
-
-  return *this;
+    return *this;
 }
-
-
-/// Position::set_check_info() sets king attacks to detect if a move gives check
-
-void Position::set_check_info() const {
-    // TODO: Sanmill
-  st->checkSquares[PAWN]   = pawn_attacks_bb(~sideToMove, ksq);
-  st->checkSquares[KNIGHT] = attacks_bb<KNIGHT>(ksq);
-  st->checkSquares[BISHOP] = attacks_bb<BISHOP>(ksq, pieces());
-  st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
-  st->checkSquares[QUEEN]  = st->checkSquares[BISHOP] | st->checkSquares[ROOK];
-  st->checkSquares[KING]   = 0;
-}
-
 
 /// Position::set_state() computes the hash keys of the position, and other
 /// data that once computed is updated incrementally as moves are made.
@@ -277,10 +342,6 @@ void Position::set_state() const {
 // TODO: Sanmill
   st->key = 0;
   st->material[WHITE] = st->material[BLACK] = VALUE_ZERO;
-  st->checkersBB = checkers_to(~sideToMove, square<KING>(sideToMove));
-  st->move = MOVE_NONE;
-
-  set_check_info();
 
   for (Bitboard b = pieces(); b; )
   {
@@ -288,84 +349,83 @@ void Position::set_state() const {
       Piece pc = piece_on(s);
       st->key ^= Zobrist::psq[pc][s];
 // TODO: Sanmill
-      if (type_of(pc) != KING)
-          st->material[color_of(pc)] += PieceValue[MG][pc];
+      st->material[color_of(pc)] += PieceValue;
   }
 
   if (sideToMove == BLACK)
       st->key ^= Zobrist::side;
 }
 
-
-/// Position::set() is an overload to initialize the position object with
-/// the given endgame code string like "KBPKN". It is mainly a helper to
-/// get the material key out of an endgame code.
-    // TODO: Sanmill
-Position& Position::set(const string& code, Color c, StateInfo* si) {
-
-  assert(code[0] == 'K');
-
-  string sides[] = { code.substr(code.find('K', 1)),      // Weak
-                     code.substr(0, std::min(code.find('v'), code.find('K', 1))) }; // Strong
-
-  assert(sides[0].length() > 0 && sides[0].length() < 8);
-  assert(sides[1].length() > 0 && sides[1].length() < 8);
-
-  std::transform(sides[c].begin(), sides[c].end(), sides[c].begin(), tolower);
-
-  string fenStr = "8/" + sides[0] + char(8 - sides[0].length() + '0') + "/8/8/8/8/"
-                       + sides[1] + char(8 - sides[1].length() + '0') + "/8 w - - 0 10";
-
-  return set(fenStr, false, si, nullptr);
-}
-
-
 /// Position::fen() returns a FEN representation of the position.
 
 string Position::fen() const {
     // TODO: Sanmill
-  int emptyCnt;
-  std::ostringstream ss;
+    std::ostringstream ss;
 
-  for (Rank r = RANK_8; r >= RANK_1; --r)
-  {
-      for (File f = FILE_A; f <= FILE_H; ++f)
-      {
-          for (emptyCnt = 0; f <= FILE_H && empty(make_square(f, r)); ++f)
-              ++emptyCnt;
+    // Piece placement data
+    for (File f = FILE_A; f <= FILE_C; ++f) {
+        for (Rank r = RANK_1; r <= RANK_8; ++r) {
+            ss << PieceToChar(piece_on(make_square(f, r)));
+        }
 
-          if (emptyCnt)
-              ss << emptyCnt;
+        if (f == FILE_C) {
+            ss << " ";
+        } else {
+            ss << "/";
+        }
+    }
 
-          if (f <= FILE_H)
-              ss << PieceToChar[piece_on(make_square(f, r))];
-      }
+    // Active color
+    ss << (sideToMove == WHITE ? "w" : "b");
 
-      if (r > RANK_1)
-          ss << '/';
-  }
+    ss << " ";
 
-  ss << (sideToMove == WHITE ? " w " : " b ");
+    // Phrase
+    switch (phase) {
+    case Phase::none:
+        ss << "n";
+        break;
+    case Phase::ready:
+        ss << "r";
+        break;
+    case Phase::placing:
+        ss << "p";
+        break;
+    case Phase::moving:
+        ss << "m";
+        break;
+    case Phase::gameOver:
+        ss << "o";
+        break;
+    }
 
-  if (can_castle(WHITE_OO))
-      ss << (chess960 ? char('A' + file_of(castling_rook_square(WHITE_OO ))) : 'K');
+    ss << " ";
 
-  if (can_castle(WHITE_OOO))
-      ss << (chess960 ? char('A' + file_of(castling_rook_square(WHITE_OOO))) : 'Q');
+    // Action
+    switch (action) {
+    case Action::place:
+        ss << "p";
+        break;
+    case Action::select:
+        ss << "s";
+        break;
+    case Action::remove:
+        ss << "r";
+        break;
+    case Action::none:
+        ss << "?";
+        break;
+    }
 
-  if (can_castle(BLACK_OO))
-      ss << (chess960 ? char('a' + file_of(castling_rook_square(BLACK_OO ))) : 'k');
+    ss << " ";
 
-  if (can_castle(BLACK_OOO))
-      ss << (chess960 ? char('a' + file_of(castling_rook_square(BLACK_OOO))) : 'q');
+    ss << pieceOnBoardCount[WHITE] << " " << pieceInHandCount[WHITE] << " "
+       << pieceOnBoardCount[BLACK] << " " << pieceInHandCount[BLACK] << " "
+       << pieceToRemoveCount[WHITE] << " " << pieceToRemoveCount[BLACK] << " ";
 
-  if (!can_castle(ANY_CASTLING))
-      ss << '-';
+    ss << st->rule50 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
-  ss << (ep_square() == SQ_NONE ? " - " : " " + UCI::square(ep_square()) + " ")
-     << st->rule50 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
-
-  return ss.str();
+    return ss.str();
 }
 
 
@@ -373,24 +433,23 @@ string Position::fen() const {
 
 bool Position::legal(Move m) const {
 
-  assert(is_ok(m));
+    assert(is_ok(m));
 
-  Color us = sideToMove;
-  Square from = from_sq(m);
-  Square to = to_sq(m);
+    const Color us = sideToMove;
+    const Square from = from_sq(m);
+    const Square to = to_sq(m);
 
-  assert(color_of(moved_piece(m)) == us);
-  assert(piece_on(square<KING>(us)) == make_piece(us, KING));
+    if (from == to) {
+        return false;
+    }
 
-  // If the moving piece is a king, check whether the destination square is
-  // attacked by the opponent.
-  if (type_of(piece_on(from)) == KING)    // TODO: Sanmill
-      return !(attackers_to(to, pieces() ^ from) & pieces(~us));
+    if (phase == Phase::moving && type_of(move) != MOVETYPE_REMOVE) {
+        if (color_of(moved_piece(m)) != us) {
+            return false;
+        }
+    }
 
-  // A non-king move is legal if and only if it is not pinned or it
-  // is moving along the ray towards or away from the king.
-  return !(blockers_for_king(us) & from)
-      || aligned(from, to, square<KING>(us));    // TODO: Sanmill
+    return true;  // TODO: Sanmill
 }
 
 
@@ -415,33 +474,6 @@ bool Position::pseudo_legal(const Move m) const {
       return false;
 
   return true;
-}
-
-
-/// Position::gives_check() tests whether a pseudo-legal move gives a check
-
-bool Position::gives_check(Move m) const {
-
-  assert(is_ok(m));
-  assert(color_of(moved_piece(m)) == sideToMove);
-
-  Square from = from_sq(m);
-  Square to = to_sq(m);
-
-  // Is there a direct check?
-  if (check_squares(type_of(piece_on(from))) & to)
-      return true;
-
-  // Is there a discovered check?
-  if (   (blockers_for_king(~sideToMove) & from)
-      && !aligned(from, to, square<KING>(~sideToMove)))    // TODO: Sanmill
-      return true;
-
-  switch (type_of(m))    // TODO: Sanmill
-  {
-  case NORMAL:
-      return false;  
-  }
 }
 
 
@@ -481,35 +513,17 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   Square from = from_sq(m);
   Square to = to_sq(m);
   Piece pc = piece_on(from);
-  Piece captured = type_of(m) == EN_PASSANT ? make_piece(them, PAWN) : piece_on(to);    // TODO: Sanmill
+
+  auto captured = piece_on(to);
 
   assert(color_of(pc) == us);
-  assert(captured == NO_PIECE || color_of(captured) == them);    // TODO: Sanmill
-  assert(type_of(captured) != KING);
 
-  if (captured)
+  if (type_of(m) == MOVETYPE_REMOVE)
   {
       Square capsq = to;
     // TODO: Sanmill
-      // If the captured piece is a pawn, update pawn hash key, otherwise
-      // update non-pawn material.
-      if (type_of(captured) == PAWN)
-      {
-          if (type_of(m) == EN_PASSANT)
-          {
-              capsq -= pawn_push(us);
 
-              assert(pc == make_piece(us, PAWN));
-              assert(to == st->epSquare);
-              assert(relative_rank(us, to) == RANK_6);
-              assert(piece_on(to) == NO_PIECE);
-              assert(piece_on(capsq) == make_piece(them, PAWN));
-          }
-
-          st->pawnKey ^= Zobrist::psq[captured][capsq];
-      }
-      else
-          st->nonPawnMaterial[them] -= PieceValue[MG][captured];
+      st->material[them] -= PieceValue;
 
       if (Eval::useNNUE)
       {
@@ -522,11 +536,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       // Update board and piece lists
       remove_piece(capsq);
 
-      // Update material hash key and prefetch access to materialTable
-      k ^= Zobrist::psq[captured][capsq];
-      st->materialKey ^= Zobrist::psq[captured][pieceCount[captured]];
-      prefetch(thisThread->materialTable[st->materialKey]);
-
       // Reset rule 50 counter
       st->rule50 = 0;
   }
@@ -534,95 +543,13 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // Update hash key
   k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
-  // Reset en passant square
-  if (st->epSquare != SQ_NONE)
-  {
-      k ^= Zobrist::enpassant[file_of(st->epSquare)];
-      st->epSquare = SQ_NONE;
-  }
-
-  // Update castling rights if needed
-  if (st->castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
-  {
-      k ^= Zobrist::castling[st->castlingRights];
-      st->castlingRights &= ~(castlingRightsMask[from] | castlingRightsMask[to]);
-      k ^= Zobrist::castling[st->castlingRights];
-  }
-
-  // Move the piece. The tricky Chess960 castling is handled earlier
-  if (type_of(m) != CASTLING)
-  {
-      if (Eval::useNNUE)
-      {
-          dp.piece[0] = pc;
-          dp.from[0] = from;
-          dp.to[0] = to;
-      }
-
-      move_piece(from, to);
-  }
-
-  // If the moving piece is a pawn do some special extra work
-  if (type_of(pc) == PAWN)
-  {
-      // Set en passant square if the moved pawn can be captured
-      if (   (int(to) ^ int(from)) == 16
-          && (pawn_attacks_bb(us, to - pawn_push(us)) & pieces(them, PAWN)))
-      {
-          st->epSquare = to - pawn_push(us);
-          k ^= Zobrist::enpassant[file_of(st->epSquare)];
-      }
-
-      else if (type_of(m) == PROMOTION)
-      {
-          Piece promotion = make_piece(us, promotion_type(m));
-
-          assert(relative_rank(us, to) == RANK_8);
-          assert(type_of(promotion) >= KNIGHT && type_of(promotion) <= QUEEN);
-
-          remove_piece(to);
-          put_piece(promotion, to);
-
-          if (Eval::useNNUE)
-          {
-              // Promoting pawn to SQ_NONE, promoted piece from SQ_NONE
-              dp.to[0] = SQ_NONE;
-              dp.piece[dp.dirty_num] = promotion;
-              dp.from[dp.dirty_num] = SQ_NONE;
-              dp.to[dp.dirty_num] = to;
-              dp.dirty_num++;
-          }
-
-          // Update hash keys
-          k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[promotion][to];
-          st->pawnKey ^= Zobrist::psq[pc][to];
-          st->materialKey ^=  Zobrist::psq[promotion][pieceCount[promotion]-1]
-                            ^ Zobrist::psq[pc][pieceCount[pc]];
-
-          // Update material
-          st->nonPawnMaterial[us] += PieceValue[MG][promotion];
-      }
-
-      // Update pawn hash key
-      st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
-
-      // Reset rule 50 draw counter
-      st->rule50 = 0;
-  }
-
   // Set capture piece
   st->capturedPiece = captured;
 
   // Update the key with the final value
   st->key = k;
 
-  // Calculate checkers bitboard (if move gives check)
-  st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;    // TODO: Sanmill
-
   sideToMove = ~sideToMove;
-
-  // Update king attacks used for fast check detection
-  set_check_info();
 
   // Calculate the repetition info. It is the ply distance from the previous
   // occurrence of the same position, negative in the 3-fold case, or zero
@@ -661,10 +588,6 @@ void Position::undo_move(Move m) {
   Square to = to_sq(m);
   Piece pc = piece_on(to);
 
-  assert(empty(from) || type_of(m) == CASTLING);
-  assert(type_of(st->capturedPiece) != KING);
-
-
       move_piece(to, from); // Put the piece back at the source square
 
       if (st->capturedPiece)
@@ -688,7 +611,6 @@ void Position::undo_move(Move m) {
 
 void Position::do_null_move(StateInfo& newSt) {
 
-  assert(!checkers());
   assert(&newSt != st);
 
   std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
@@ -721,8 +643,6 @@ void Position::do_null_move(StateInfo& newSt) {
 
 void Position::undo_null_move() {
 
-  assert(!checkers());
-
   st = st->previous;
   sideToMove = ~sideToMove;
 }
@@ -744,7 +664,7 @@ Key Position::key_after(Move m) const {
 
   k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
 
-  return (captured || type_of(pc) == PAWN)
+  return (captured)
       ? k : adjust_key50<true>(k);
 }
 
@@ -757,97 +677,23 @@ bool Position::see_ge(Move m, Bitboard& occupied, Value threshold) const {
 
   assert(is_ok(m));
 
-  // Only deal with normal moves, assume others pass a simple SEE
-  if (type_of(m) != NORMAL)
-      return VALUE_ZERO >= threshold;
-
   Square from = from_sq(m), to = to_sq(m);
 
-  int swap = PieceValue[MG][piece_on(to)] - threshold;
+  int swap = PieceValue - threshold;
   if (swap < 0)
       return false;
 
-  swap = PieceValue[MG][piece_on(from)] - swap;
+  swap = PieceValue - swap;
   if (swap <= 0)
       return true;
 
   assert(color_of(piece_on(from)) == sideToMove);
   occupied = pieces() ^ from ^ to; // xoring to is important for pinned piece logic
   Color stm = sideToMove;
-  Bitboard attackers = attackers_to(to, occupied);
   Bitboard stmAttackers, bb;
   int res = 1;
 
-  while (true)
-  {
-      stm = ~stm;
-      attackers &= occupied;
-
-      // If stm has no more attackers then give up: stm loses
-      if (!(stmAttackers = attackers & pieces(stm)))
-          break;
-
-      // Don't allow pinned pieces to attack as long as there are
-      // pinners on their original square.
-      if (pinners(~stm) & occupied)
-      {
-          stmAttackers &= ~blockers_for_king(stm);
-
-          if (!stmAttackers)
-              break;
-      }
-
-      res ^= 1;
-
-      // Locate and remove the next least valuable attacker, and add to
-      // the bitboard 'attackers' any X-ray attackers behind it.
-      if ((bb = stmAttackers & pieces(PAWN)))    // TODO: Sanmill
-      {
-          occupied ^= least_significant_square_bb(bb);
-          if ((swap = PawnValueMg - swap) < res)
-              break;
-
-          attackers |= attacks_bb<BISHOP>(to, occupied) & pieces(BISHOP, QUEEN);    // TODO: Sanmill
-      }
-
-      else if ((bb = stmAttackers & pieces(KNIGHT)))    // TODO: Sanmill
-      {
-          occupied ^= least_significant_square_bb(bb);
-          if ((swap = KnightValueMg - swap) < res)    // TODO: Sanmill
-              break;
-      }
-
-      else if ((bb = stmAttackers & pieces(BISHOP)))
-      {
-          occupied ^= least_significant_square_bb(bb);
-          if ((swap = BishopValueMg - swap) < res)
-              break;
-
-          attackers |= attacks_bb<BISHOP>(to, occupied) & pieces(BISHOP, QUEEN);    // TODO: Sanmill
-      }
-
-      else if ((bb = stmAttackers & pieces(ROOK)))    // TODO: Sanmill
-      {
-          occupied ^= least_significant_square_bb(bb);
-          if ((swap = RookValueMg - swap) < res)    // TODO: Sanmill
-              break;
-      }
-
-      else if ((bb = stmAttackers & pieces(QUEEN)))    // TODO: Sanmill
-      {
-          occupied ^= least_significant_square_bb(bb);
-          if ((swap = QueenValueMg - swap) < res)    // TODO: Sanmill
-              break;
-
-          attackers |=  (attacks_bb<BISHOP>(to, occupied) & pieces(BISHOP, QUEEN))    // TODO: Sanmill
-                      | (attacks_bb<ROOK  >(to, occupied) & pieces(ROOK  , QUEEN));    // TODO: Sanmill
-      }
-
-      else // KING
-           // If we "capture" with the king but opponent still has attackers,
-           // reverse the result.
-          return (attackers & ~pieces(stm)) ? res ^ 1 : res;
-  }
+  // TODO: Sanmill
 
   return bool(res);
 }
@@ -863,7 +709,7 @@ bool Position::see_ge(Move m, Value threshold) const {
 
 bool Position::is_draw(int ply) const {
 
-  if (st->rule50 > 99 && (!checkers() || MoveList<LEGAL>(*this).size()))
+  if (st->rule50 > 99 && (MoveList<LEGAL>(*this).size()))
       return true;
 
   // Return a draw score if a position repeats once earlier but strictly
@@ -908,32 +754,14 @@ bool Position::has_game_cycle(int ply) const {
   for (int i = 3; i <= end; i += 2)
   {
       stp = stp->previous->previous;
+        // TODO: Sanmill
 
-      Key moveKey = originalKey ^ stp->key;
-      if (   (j = H1(moveKey), cuckoo[j] == moveKey)
-          || (j = H2(moveKey), cuckoo[j] == moveKey))
-      {
-          Move move = cuckooMove[j];
-          Square s1 = from_sq(move);
-          Square s2 = to_sq(move);
-
-          if (!((between_bb(s1, s2) ^ s2) & pieces()))
-          {
-              if (ply > i)
-                  return true;
-
-              // For nodes before or at the root, check that the move is a
-              // repetition rather than a move to the current position.
-              // In the cuckoo table, both moves Rc1c5 and Rc5c1 are stored in
-              // the same location, so we have to select which square to check.
-              if (color_of(piece_on(empty(s1) ? s2 : s1)) != side_to_move())
-                  continue;
 
               // For repetitions before or at the root, require one more
               if (stp->repetition)
                   return true;
-          }
-      }
+
+
   }
   return false;
 }
@@ -947,9 +775,9 @@ void Position::flip() {
   string f, token;
   std::stringstream ss(fen());
 
-  for (Rank r = RANK_8; r >= RANK_1; --r) // Piece placement    // TODO: Sanmill
+  for (Rank r = RANK_8; r >= RANK_1; --r) // Piece placement
   {
-      std::getline(ss, token, r > RANK_1 ? '/' : ' ');    // TODO: Sanmillvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+      std::getline(ss, token, r > RANK_1 ? '/' : ' ');
       f.insert(0, token + (f.empty() ? " " : "/"));
   }
 
@@ -982,23 +810,11 @@ bool Position::pos_is_ok() const {
 
   constexpr bool Fast = true; // Quick (default) or full check?
 
-  if (   (sideToMove != WHITE && sideToMove != BLACK)
-      || piece_on(square<KING>(WHITE)) != W_KING
-      || piece_on(square<KING>(BLACK)) != B_KING)    // TODO: Sanmill
+  if (   (sideToMove != WHITE && sideToMove != BLACK))
       assert(0 && "pos_is_ok: Default");
 
   if (Fast)
       return true;
-
-  if (   pieceCount[W_KING] != 1
-      || pieceCount[B_KING] != 1
-      || checkers_to(sideToMove, square<KING>(~sideToMove)))    // TODO: Sanmill
-      assert(0 && "pos_is_ok: Kings");
-
-  if (   (pieces(PAWN) & (Rank1BB | Rank8BB))    // TODO: Sanmill
-      || pieceCount[W_PAWN] > 8
-      || pieceCount[B_PAWN] > 8)
-      assert(0 && "pos_is_ok: Pawns");
 
   if (   (pieces(WHITE) & pieces(BLACK))
       || (pieces(WHITE) | pieces(BLACK)) != pieces()
@@ -1006,18 +822,1078 @@ bool Position::pos_is_ok() const {
       || popcount(pieces(BLACK)) > 16)
       assert(0 && "pos_is_ok: Bitboards");
 
-  for (PieceType p1 = PAWN; p1 <= KING; ++p1)
-      for (PieceType p2 = PAWN; p2 <= KING; ++p2)
-          if (p1 != p2 && (pieces(p1) & pieces(p2)))
-              assert(0 && "pos_is_ok: Bitboards");
-
-
   for (Piece pc : Pieces)
       if (   pieceCount[pc] != popcount(pieces(color_of(pc), type_of(pc)))
           || pieceCount[pc] != std::count(board, board + SQUARE_NB, pc))
           assert(0 && "pos_is_ok: Pieces");
 
   return true;
+}
+
+// Mill
+
+/// Mill Game
+
+bool Position::reset()
+{
+    repetition = 0;
+
+    gamePly = 0;
+    st.rule50 = 0;
+
+    phase = Phase::ready;
+    set_side_to_move(WHITE);
+    action = Action::place;
+
+    winner = NOBODY;
+    gameOverReason = GameOverReason::none;
+
+    memset(board, 0, sizeof(board));
+    memset(byTypeBB, 0, sizeof(byTypeBB));
+    memset(byColorBB, 0, sizeof(byColorBB));
+
+    st.key = 0;
+
+    pieceOnBoardCount[WHITE] = pieceOnBoardCount[BLACK] = 0;
+    pieceInHandCount[WHITE] = pieceInHandCount[BLACK] = rule.pieceCount;
+    pieceToRemoveCount[WHITE] = pieceToRemoveCount[BLACK] = 0;
+
+    isNeedStalemateRemoval = false;
+    isStalemateRemoving = false;
+
+    mobilityDiff = 0;
+
+    MoveList<LEGAL>::create();
+    create_mill_table();
+    currentSquare = SQ_0;
+
+#ifdef ENDGAME_LEARNING
+    if (gameOptions.isEndgameLearningEnabled() && gamesPlayedCount > 0 &&
+        gamesPlayedCount % SAVE_ENDGAME_EVERY_N_GAMES == 0) {
+        Thread::saveEndgameHashMapToFile();
+    }
+#endif /* ENDGAME_LEARNING */
+
+    int r;
+    for (r = 0; r < N_RULES; r++) {
+        if (strcmp(rule.name, RULES[r].name) == 0)
+            break;
+    }
+
+    if (snprintf(record, RECORD_LEN_MAX, "r%1d s%03u t%02d", r + 1,
+                 rule.nMoveRule, 0) > 0) {
+        return true;
+    }
+
+    record[0] = '\0';
+
+    return false;
+}
+
+bool Position::start()
+{
+    gameOverReason = GameOverReason::none;
+
+    switch (phase) {
+    case Phase::placing:
+    case Phase::moving:
+        return false;
+    case Phase::gameOver:
+        reset();
+        [[fallthrough]];
+    case Phase::ready:
+        phase = Phase::placing;
+        return true;
+    case Phase::none:
+        return false;
+    }
+
+    return false;
+}
+
+bool Position::put_piece(Square s, bool updateRecord)
+{
+    const Color us = sideToMove;
+
+    if (phase == Phase::gameOver || action != Action::place ||
+        !(SQ_BEGIN <= s && s < SQ_END) || board[s]) {
+        return false;
+    }
+
+    isNeedStalemateRemoval = false;
+
+    if (phase == Phase::ready) {
+        start();
+    }
+
+    if (phase == Phase::placing) {
+        const auto piece = static_cast<Piece>((0x01 | make_piece(sideToMove)) +
+                                              rule.pieceCount -
+                                              pieceInHandCount[us]);
+        pieceInHandCount[us]--;
+        pieceOnBoardCount[us]++;
+
+        const Piece pc = board[s] = piece;
+        byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
+        byColorBB[color_of(pc)] |= s; // TODO(calcitem): Put ban?
+
+        update_key(s);
+
+        updateMobility(MOVETYPE_PLACE, s);
+
+        if (updateRecord) {
+            snprintf(record, RECORD_LEN_MAX, "(%1d,%1d)", file_of(s),
+                     rank_of(s));
+        }
+
+        currentSquare = s;
+
+#ifdef MADWEASEL_MUEHLE_RULE
+        if (pieceInHandCount[WHITE] == 0 && pieceInHandCount[BLACK] == 0 &&
+            is_all_surrounded(~sideToMove, SQ_0, s)) {
+            set_gameover(sideToMove, GameOverReason::loseNoWay);
+            // change_side_to_move();
+            return true;
+        }
+#endif
+
+        const int n = mills_count(currentSquare);
+
+        if (n == 0
+#ifdef MADWEASEL_MUEHLE_RULE
+            || is_all_in_mills(them)
+#endif
+        ) {
+            if (pieceInHandCount[WHITE] < 0 || pieceInHandCount[BLACK] < 0) {
+                return false;
+            }
+
+            if (pieceInHandCount[WHITE] == 0 && pieceInHandCount[BLACK] == 0) {
+                if (check_if_game_is_over()) {
+                    return true;
+                }
+
+                if (pieceToRemoveCount[sideToMove] > 0) {
+                    action = Action::remove;
+                    update_key_misc();
+                } else {
+                    phase = Phase::moving;
+                    action = Action::select;
+
+                    if (rule.hasBannedLocations) {
+                        remove_ban_pieces();
+                    }
+
+                    if (!rule.isDefenderMoveFirst) {
+                        change_side_to_move();
+                    }
+
+                    if (check_if_game_is_over()) {
+                        return true;
+                    }
+                }
+            } else {
+                change_side_to_move();
+            }
+        } else {
+            pieceToRemoveCount[sideToMove] = rule.mayRemoveMultiple ? n : 1;
+            update_key_misc();
+
+            if (rule.mayOnlyRemoveUnplacedPieceInPlacingPhase) {
+                pieceInHandCount[them] -= 1; // Or pieceToRemoveCount?;
+
+                if (pieceInHandCount[them] < 0) {
+                    pieceInHandCount[them] = 0;
+                }
+
+                if (pieceInHandCount[WHITE] < 0 ||
+                    pieceInHandCount[BLACK] < 0) {
+                    return false;
+                }
+
+                if (pieceInHandCount[WHITE] == 0 &&
+                    pieceInHandCount[BLACK] == 0) {
+                    if (check_if_game_is_over()) {
+                        return true;
+                    }
+
+                    phase = Phase::moving;
+                    action = Action::select;
+
+                    if (rule.isDefenderMoveFirst) {
+                        change_side_to_move();
+                    }
+
+                    if (check_if_game_is_over()) {
+                        return true;
+                    }
+                }
+            } else {
+                action = Action::remove;
+            }
+        }
+
+    } else if (phase == Phase::moving) {
+#ifdef MADWEASEL_MUEHLE_RULE
+        if (is_all_surrounded(~sideToMove, currentSquare, s)) {
+            set_gameover(sideToMove, GameOverReason::loseNoWay);
+        }
+#else
+        if (check_if_game_is_over()) {
+            return true;
+        }
+#endif // MADWEASEL_MUEHLE_RULE
+
+        // If illegal
+        if (pieceOnBoardCount[sideToMove] > rule.flyPieceCount ||
+            !rule.mayFly) {
+            if ((square_bb(s) &
+                 MoveList<LEGAL>::adjacentSquaresBB[currentSquare]) == 0) {
+                return false;
+            }
+        }
+
+        if (updateRecord) {
+            snprintf(record, RECORD_LEN_MAX, "(%1d,%1d)->(%1d,%1d)",
+                     file_of(currentSquare), rank_of(currentSquare), file_of(s),
+                     rank_of(s));
+            st.rule50++;
+        }
+
+        const Piece pc = board[currentSquare];
+
+        CLEAR_BIT(byTypeBB[ALL_PIECES], currentSquare);
+        CLEAR_BIT(byTypeBB[type_of(pc)], currentSquare);
+        CLEAR_BIT(byColorBB[color_of(pc)], currentSquare);
+
+        updateMobility(MOVETYPE_REMOVE, currentSquare);
+
+        SET_BIT(byTypeBB[ALL_PIECES], s);
+        SET_BIT(byTypeBB[type_of(pc)], s);
+        SET_BIT(byColorBB[color_of(pc)], s);
+
+        updateMobility(MOVETYPE_PLACE, s);
+
+        board[s] = pc;
+        update_key(s);
+        revert_key(currentSquare);
+
+        board[currentSquare] = NO_PIECE;
+
+        currentSquare = s;
+
+        const int n = mills_count(currentSquare);
+
+        if (n == 0
+#ifdef MADWEASEL_MUEHLE_RULE
+            || is_all_in_mills(them)
+#endif
+        ) {
+            action = Action::select;
+            change_side_to_move();
+
+            if (check_if_game_is_over()) {
+                return true;
+            }
+
+            if (pieceToRemoveCount[sideToMove] == 1) {
+                update_key_misc();
+                action = Action::remove;
+                isNeedStalemateRemoval = true;
+            }
+        } else {
+            pieceToRemoveCount[sideToMove] = rule.mayRemoveMultiple ? n : 1;
+            update_key_misc();
+            action = Action::remove;
+        }
+    } else {
+        assert(0);
+    }
+
+    return true;
+}
+
+bool Position::remove_piece(Square s, bool updateRecord)
+{
+    if (phase == Phase::ready || phase == Phase::gameOver)
+        return false;
+
+    if (action != Action::remove)
+        return false;
+
+    if (pieceToRemoveCount[sideToMove] <= 0)
+        return false;
+
+    // if piece is not their
+    if (!(make_piece(~side_to_move()) & board[s]))
+        return false;
+
+    if (is_stalemate_removal()) {
+        if (is_adjacent_to(s, sideToMove) == false) {
+            return false;
+        }
+    } else if (!rule.mayRemoveFromMillsAlways &&
+               potential_mills_count(s, NOBODY)
+#ifndef MADWEASEL_MUEHLE_RULE
+               && !is_all_in_mills(~sideToMove)
+#endif
+    ) {
+        return false;
+    }
+
+    revert_key(s);
+
+    Piece pc = board[s];
+
+    CLEAR_BIT(byTypeBB[type_of(pc)],
+              s); // TODO(calcitem): rule.hasBannedLocations and placing need?
+    CLEAR_BIT(byColorBB[color_of(pc)], s);
+
+    updateMobility(MOVETYPE_REMOVE, s);
+
+    if (rule.hasBannedLocations && phase == Phase::placing) {
+        // Remove and put ban
+        pc = board[s] = BAN_PIECE;
+        update_key(s);
+        SET_BIT(byTypeBB[type_of(pc)], s);
+    } else {
+        // Remove only
+        CLEAR_BIT(byTypeBB[ALL_PIECES], s);
+        board[s] = NO_PIECE;
+    }
+
+    if (updateRecord) {
+        snprintf(record, RECORD_LEN_MAX, "-(%1d,%1d)", file_of(s), rank_of(s));
+        st.rule50 = 0; // TODO(calcitem): Need to move out?
+    }
+
+    pieceOnBoardCount[them]--;
+
+    if (pieceOnBoardCount[them] + pieceInHandCount[them] <
+        rule.piecesAtLeastCount) {
+        set_gameover(sideToMove, GameOverReason::loseLessThanThree);
+        return true;
+    }
+
+    currentSquare = SQ_0;
+
+    pieceToRemoveCount[sideToMove]--;
+    update_key_misc();
+
+    if (pieceToRemoveCount[sideToMove] > 0) {
+        return true;
+    }
+
+    if (isStalemateRemoving) {
+        isStalemateRemoving = false;
+    } else {
+        change_side_to_move();
+    }
+
+    if (pieceToRemoveCount[sideToMove] > 0) {
+        return true;
+    }
+
+    if (phase == Phase::placing) {
+        if (pieceInHandCount[WHITE] == 0 && pieceInHandCount[BLACK] == 0) {
+            phase = Phase::moving;
+            action = Action::select;
+
+            if (rule.hasBannedLocations) {
+                remove_ban_pieces();
+            }
+
+            if (rule.isDefenderMoveFirst) {
+                set_side_to_move(BLACK);
+                goto check;
+            } else {
+                set_side_to_move(WHITE);
+            }
+        } else {
+            action = Action::place;
+        }
+    } else {
+        action = Action::select;
+    }
+
+check:
+    if (check_if_game_is_over()) {
+        return true;
+    }
+
+    return true;
+}
+
+bool Position::select_piece(Square s)
+{
+    if (phase != Phase::moving)
+        return false;
+
+    if (action != Action::select && action != Action::place)
+        return false;
+
+    if (board[s] & make_piece(sideToMove)) {
+        currentSquare = s;
+        action = Action::place;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool Position::resign(Color loser)
+{
+    if (phase == Phase::ready || phase == Phase::gameOver ||
+        phase == Phase::none) {
+        return false;
+    }
+
+    set_gameover(~loser, GameOverReason::loseResign);
+
+    snprintf(record, RECORD_LEN_MAX, loseReasonResignStr, loser);
+
+    return true;
+}
+
+bool Position::command(const char *cmd)
+{
+    unsigned int ruleNo = 0;
+    unsigned t = 0;
+    int step = 0;
+    File file1 = FILE_A, file2 = FILE_A;
+    Rank rank1 = RANK_1, rank2 = RANK_1;
+
+    if (sscanf(cmd, "r%1u s%3d t%2u", &ruleNo, &step, &t) == 3) {
+        if (set_rule(ruleNo - 1) == false) {
+            return false;
+        }
+
+        return reset();
+    }
+
+    int args = sscanf(cmd, "(%1u,%1u)->(%1u,%1u)",
+                      reinterpret_cast<unsigned *>(&file1),
+                      reinterpret_cast<unsigned *>(&rank1),
+                      reinterpret_cast<unsigned *>(&file2),
+                      reinterpret_cast<unsigned *>(&rank2));
+
+    if (args >= 4) {
+        return move_piece(file1, rank1, file2, rank2);
+    }
+
+    args = sscanf(cmd, "-(%1u,%1u)", reinterpret_cast<unsigned *>(&file1),
+                  reinterpret_cast<unsigned *>(&rank1));
+    if (args >= 2) {
+        return remove_piece(file1, rank1);
+    }
+
+    args = sscanf(cmd, "(%1u,%1u)", reinterpret_cast<unsigned *>(&file1),
+                  reinterpret_cast<unsigned *>(&rank1));
+    if (args >= 2) {
+        return put_piece(file1, rank1);
+    }
+
+    args = sscanf(cmd, "Player%1u give up!", &t);
+
+    if (args == 1) {
+        return resign(static_cast<Color>(t));
+    }
+
+    if (rule.threefoldRepetitionRule) {
+        if (!strcmp(cmd, drawReasonThreefoldRepetitionStr)) {
+            return true;
+        }
+
+        if (!strcmp(cmd, "draw")) {
+            set_gameover(DRAW, GameOverReason::drawThreefoldRepetition);
+            // snprintf(record, RECORD_LEN_MAX,
+            // drawReasonThreefoldRepetitionStr);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+Color Position::get_winner() const noexcept
+{
+    return winner;
+}
+
+void Position::set_gameover(Color w, GameOverReason reason)
+{
+    phase = Phase::gameOver;
+    gameOverReason = reason;
+    winner = w;
+
+    update_score();
+}
+
+void Position::update_score()
+{
+    if (phase == Phase::gameOver) {
+        if (winner == DRAW) {
+            score_draw++;
+            return;
+        }
+
+        score[winner]++;
+    }
+}
+
+bool Position::check_if_game_is_over()
+{
+#ifdef RULE_50
+    if (rule.nMoveRule > 0 && posKeyHistory.size() >= rule.nMoveRule) {
+        set_gameover(DRAW, GameOverReason::drawRule50);
+        return true;
+    }
+
+    if (rule.endgameNMoveRule < rule.nMoveRule && is_three_endgame() &&
+        posKeyHistory.size() >= rule.endgameNMoveRule) {
+        set_gameover(DRAW, GameOverReason::drawEndgameRule50);
+        return true;
+    }
+#endif // RULE_50
+
+    if (rule.pieceCount == 12 &&
+        (pieceOnBoardCount[WHITE] + pieceOnBoardCount[BLACK] >= SQUARE_NB)) {
+        // TODO: BoardFullAction: Support other actions
+        switch (rule.boardFullAction) {
+        case BoardFullAction::firstPlayerLose:
+            set_gameover(BLACK, GameOverReason::loseBoardIsFull);
+            return true;
+        case BoardFullAction::firstAndSecondPlayerRemovePiece:
+            pieceToRemoveCount[WHITE] = pieceToRemoveCount[BLACK] = 1;
+            // Pursue performance at the expense of maintainability
+            change_side_to_move();
+            return false;
+        case BoardFullAction::secondAndFirstPlayerRemovePiece:
+            pieceToRemoveCount[WHITE] = pieceToRemoveCount[BLACK] = 1;
+            return false;
+        case BoardFullAction::sideToMoveRemovePiece:
+            if (rule.isDefenderMoveFirst) {
+                set_side_to_move(BLACK);
+            } else {
+                set_side_to_move(WHITE);
+            }
+            pieceToRemoveCount[sideToMove] = 1;
+            return false;
+        case BoardFullAction::agreeToDraw:
+            set_gameover(DRAW, GameOverReason::drawBoardIsFull);
+            return true;
+        };
+    }
+
+    if (phase == Phase::moving && action == Action::select &&
+        is_all_surrounded(sideToMove)) {
+        switch (rule.stalemateAction) {
+        case StalemateAction::endWithStalemateLoss:
+            set_gameover(~sideToMove, GameOverReason::loseNoWay);
+            return true;
+        case StalemateAction::changeSideToMove:
+            change_side_to_move(); // TODO(calcitem): Need?
+            return false;
+        case StalemateAction::removeOpponentsPieceAndMakeNextMove:
+            pieceToRemoveCount[sideToMove] = 1;
+            isStalemateRemoving = true;
+            action = Action::remove;
+            return false;
+        case StalemateAction::removeOpponentsPieceAndChangeSideToMove:
+            pieceToRemoveCount[sideToMove] = 1;
+            action = Action::remove;
+            return false;
+        case StalemateAction::endWithStalemateDraw:
+            set_gameover(DRAW, GameOverReason::drawNoWay);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int Position::calculate_mobility_diff()
+{
+    // TODO(calcitem): Deal with rule is no ban location
+    int mobilityWhite = 0;
+    int mobilityBlack = 0;
+
+    for (Square s = SQ_BEGIN; s < SQ_END; ++s) {
+        if (board[s] == NO_PIECE || board[s] == BAN_PIECE) {
+            for (MoveDirection d = MD_BEGIN; d < MD_NB; ++d) {
+                const Square moveSquare = MoveList<LEGAL>::adjacentSquares[s][d];
+                if (moveSquare) {
+                    if (board[moveSquare] & W_PIECE) {
+                        mobilityWhite++;
+                    }
+                    if (board[moveSquare] & B_PIECE) {
+                        mobilityBlack++;
+                    }
+                }
+            }
+        }
+    }
+
+    return mobilityWhite - mobilityBlack;
+}
+
+void Position::remove_ban_pieces()
+{
+    assert(rule.hasBannedLocations);
+
+    for (int f = 1; f <= FILE_NB; f++) {
+        for (int r = 0; r < RANK_NB; r++) {
+            const auto s = static_cast<Square>(f * RANK_NB + r);
+
+            if (board[s] == BAN_PIECE) {
+                const Piece pc = board[s];
+                byTypeBB[ALL_PIECES] ^= s;
+                byTypeBB[type_of(pc)] ^= s;
+                board[s] = NO_PIECE;
+                revert_key(s);
+            }
+        }
+    }
+}
+
+inline void Position::set_side_to_move(Color c)
+{
+    sideToMove = c;
+    // us = c;
+    them = ~sideToMove;
+}
+
+inline void Position::change_side_to_move()
+{
+    set_side_to_move(~sideToMove);
+    st.key ^= Zobrist::side;
+}
+
+inline Key Position::update_key(Square s)
+{
+    const int pieceType = color_on(s);
+
+    st.key ^= Zobrist::psq[pieceType][s];
+
+    return st.key;
+}
+
+inline Key Position::revert_key(Square s)
+{
+    return update_key(s);
+}
+
+Key Position::update_key_misc()
+{
+    st.key = st.key << Zobrist::KEY_MISC_BIT >> Zobrist::KEY_MISC_BIT;
+
+    // TODO: pieceToRemoveCount[sideToMove] or
+    // abs(pieceToRemoveCount[sideToMove] - pieceToRemoveCount[~sideToMove])?
+    st.key |= static_cast<Key>(pieceToRemoveCount[sideToMove])
+              << (CHAR_BIT * sizeof(Key) - Zobrist::KEY_MISC_BIT);
+
+    return st.key;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#include "misc.h"
+#include "movegen.h"
+
+Bitboard Position::millTableBB[SQUARE_EXT_NB][LD_NB] = {{0}};
+
+void Position::create_mill_table()
+{
+    Mills::mill_table_init();
+}
+
+Color Position::color_on(Square s) const
+{
+    return color_of(board[s]);
+}
+
+bool Position::bitboard_is_ok()
+{
+#ifdef BITBOARD_DEBUG
+    Bitboard whiteBB = byColorBB[WHITE];
+    Bitboard blackBB = byColorBB[BLACK];
+
+    for (Square s = SQ_BEGIN; s < SQ_END; ++s) {
+        if (empty(s)) {
+            if (whiteBB & (1 << s)) {
+                return false;
+            }
+
+            if (blackBB & (1 << s)) {
+                return false;
+            }
+        }
+
+        if (color_of(board[s]) == WHITE) {
+            if ((whiteBB & (1 << s)) == 0) {
+                return false;
+            }
+
+            if (blackBB & (1 << s)) {
+                return false;
+            }
+        }
+
+        if (color_of(board[s]) == BLACK) {
+            if ((blackBB & (1 << s)) == 0) {
+                return false;
+            }
+
+            if (whiteBB & (1 << s)) {
+                return false;
+            }
+        }
+    }
+#endif
+
+    return true;
+}
+
+int Position::potential_mills_count(Square to, Color c, Square from)
+{
+    int n = 0;
+    Piece locbak = NO_PIECE;
+
+    assert(SQ_0 <= from && from < SQUARE_EXT_NB);
+
+    if (c == NOBODY) {
+        c = color_on(to);
+    }
+
+    if (from >= SQ_BEGIN && from < SQ_END) {
+        locbak = board[from];
+        board[from] = NO_PIECE;
+
+        CLEAR_BIT(byTypeBB[ALL_PIECES], from);
+        CLEAR_BIT(byTypeBB[type_of(locbak)], from);
+        CLEAR_BIT(byColorBB[color_of(locbak)], from);
+    }
+
+    const Bitboard bc = byColorBB[c];
+    const Bitboard *mt = millTableBB[to];
+
+    if ((bc & mt[LD_HORIZONTAL]) == mt[LD_HORIZONTAL]) {
+        n++;
+    }
+
+    if ((bc & mt[LD_VERTICAL]) == mt[LD_VERTICAL]) {
+        n++;
+    }
+
+    if ((bc & mt[LD_SLASH]) == mt[LD_SLASH]) {
+        n++;
+    }
+
+    if (from >= SQ_BEGIN && from < SQ_END) {
+        board[from] = locbak;
+
+        SET_BIT(byTypeBB[ALL_PIECES], from);
+        SET_BIT(byTypeBB[type_of(locbak)], from);
+        SET_BIT(byColorBB[color_of(locbak)], from);
+    }
+
+    return n;
+}
+
+int Position::mills_count(Square s) const
+{
+    int n = 0;
+
+    const Bitboard bc = byColorBB[color_on(s)];
+    const Bitboard *mt = millTableBB[s];
+
+    for (auto i = 0; i < LD_NB; ++i) {
+        if ((bc & mt[i]) == mt[i]) {
+            n++;
+        }
+    }
+
+    return n;
+}
+
+bool Position::is_all_in_mills(Color c)
+{
+    for (Square i = SQ_BEGIN; i < SQ_END; ++i) {
+        if (board[i] & static_cast<uint8_t>(make_piece(c))) {
+            if (!potential_mills_count(i, NOBODY)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void Position::surrounded_pieces_count(Square s, int &ourPieceCount,
+                                       int &theirPieceCount, int &bannedCount,
+                                       int &emptyCount) const
+{
+    for (MoveDirection d = MD_BEGIN; d < MD_NB; ++d) {
+        const Square moveSquare = MoveList<LEGAL>::adjacentSquares[s][d];
+
+        if (!moveSquare) {
+            continue;
+        }
+
+        switch (const auto pieceType = board[moveSquare]) {
+        case NO_PIECE:
+            emptyCount++;
+            break;
+        case BAN_PIECE:
+            bannedCount++;
+            break;
+        default:
+            if (color_of(pieceType) == sideToMove) {
+                ourPieceCount++;
+            } else {
+                theirPieceCount++;
+            }
+            break;
+        }
+    }
+}
+
+bool Position::is_all_surrounded(Color c
+#ifdef MADWEASEL_MUEHLE_RULE
+                                 ,
+                                 Square from, Square to
+#endif // MADWEASEL_MUEHLE_RULE
+) const
+{
+    // Full
+    if (pieceOnBoardCount[WHITE] + pieceOnBoardCount[BLACK] >= SQUARE_NB)
+        return true;
+
+    // Can fly
+    if (pieceOnBoardCount[c] <= rule.flyPieceCount && rule.mayFly) {
+        return false;
+    }
+
+    Bitboard bb = byTypeBB[ALL_PIECES];
+
+#ifdef MADWEASEL_MUEHLE_RULE
+    CLEAR_BIT(bb, from);
+    SET_BIT(bb, to);
+#endif // MADWEASEL_MUEHLE_RULE
+
+    for (Square s = SQ_BEGIN; s < SQ_END; ++s) {
+        if ((c & color_on(s)) && (bb & MoveList<LEGAL>::adjacentSquaresBB[s]) !=
+                                     MoveList<LEGAL>::adjacentSquaresBB[s]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Position::is_star_square(Square s)
+{
+    if (rule.hasDiagonalLines == true) {
+        return s == 17 || s == 19 || s == 21 || s == 23;
+    }
+
+    return s == 16 || s == 18 || s == 20 || s == 22;
+}
+
+void Position::print_board()
+{
+    if (rule.hasDiagonalLines) {
+        printf("\n"
+               "31 ----- 24 ----- 25\n"
+               "| \\       |      / |\n"
+               "|  23 -- 16 -- 17  |\n"
+               "|  | \\    |   / |  |\n"
+               "|  |  15-08-09  |  |\n"
+               "30-22-14    10-18-26\n"
+               "|  |  13-12-11  |  |\n"
+               "|  | /    |   \\ |  |\n"
+               "|  21 -- 20 -- 19  |\n"
+               "| /       |      \\ |\n"
+               "29 ----- 28 ----- 27\n"
+               "\n");
+    } else {
+        printf("\n"
+               "31 ----- 24 ----- 25\n"
+               "|         |        |\n"
+               "|  23 -- 16 -- 17  |\n"
+               "|  |      |     |  |\n"
+               "|  |  15-08-09  |  |\n"
+               "30-22-14    10-18-26\n"
+               "|  |  13-12-11  |  |\n"
+               "|  |      |     |  |\n"
+               "|  21 -- 20 -- 19  |\n"
+               "|         |        |\n"
+               "29 ----- 28 ----- 27\n"
+               "\n");
+    }
+}
+
+void Position::reset_bb()
+{
+    memset(byTypeBB, 0, sizeof(byTypeBB));
+    memset(byColorBB, 0, sizeof(byColorBB));
+
+    for (Square s = SQ_BEGIN; s < SQ_END; ++s) {
+        const Piece pc = board[s];
+        byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
+        byColorBB[color_of(pc)] |= s;
+    }
+}
+
+void Position::updateMobility(MoveType mt, Square s)
+{
+    if (!gameOptions.getConsiderMobility()) {
+        return;
+    }
+
+    const Bitboard adjacentWhiteBB = byColorBB[WHITE] &
+                                     MoveList<LEGAL>::adjacentSquaresBB[s];
+    const Bitboard adjacentBlackBB = byColorBB[BLACK] &
+                                     MoveList<LEGAL>::adjacentSquaresBB[s];
+    const Bitboard adjacentNoColorBB = (~(byColorBB[BLACK] |
+                                          byColorBB[WHITE])) &
+                                       MoveList<LEGAL>::adjacentSquaresBB[s];
+    const int adjacentWhiteBBCount = popcount(adjacentWhiteBB);
+    const int adjacentBlackBBCount = popcount(adjacentBlackBB);
+    const int adjacentNoColorBBCount = popcount(adjacentNoColorBB);
+
+    if (mt == MOVETYPE_PLACE) {
+        mobilityDiff -= adjacentWhiteBBCount;
+        mobilityDiff += adjacentBlackBBCount;
+
+        if (side_to_move() == WHITE) {
+            mobilityDiff += adjacentNoColorBBCount;
+        } else {
+            mobilityDiff -= adjacentNoColorBBCount;
+        }
+    } else if (mt == MOVETYPE_REMOVE) {
+        mobilityDiff += adjacentWhiteBBCount;
+        mobilityDiff -= adjacentBlackBBCount;
+
+        if (color_of(board[s]) == WHITE) {
+            mobilityDiff -= adjacentNoColorBBCount;
+        } else {
+            mobilityDiff += adjacentNoColorBBCount;
+        }
+    } else {
+        assert(0);
+    }
+}
+
+int Position::total_mills_count(Color c)
+{
+    assert(c == WHITE || c == BLACK);
+
+    // TODO: Move to mills.cpp
+    static const int horizontalAndVerticalLines[16][3] = {
+        // Horizontal lines
+        {31, 24, 25},
+        {23, 16, 17},
+        {15, 8, 9},
+        {30, 22, 14},
+        {10, 18, 26},
+        {13, 12, 11},
+        {21, 20, 19},
+        {29, 28, 27},
+        // Vertical lines
+        {31, 30, 29},
+        {23, 22, 21},
+        {15, 14, 13},
+        {24, 16, 8},
+        {12, 20, 28},
+        {9, 10, 11},
+        {17, 18, 19},
+        {25, 26, 27},
+    };
+
+    static const int diagonalLines[4][3] = {
+        {31, 23, 15},
+        {9, 17, 25},
+        {29, 21, 13},
+        {11, 19, 27},
+    };
+
+    int n = 0;
+
+        for (int i  = 0; i < 16; i++) {
+        if (color_on(static_cast<Square>(horizontalAndVerticalLines[i][0])) == c &&
+            color_on(static_cast<Square>(horizontalAndVerticalLines[i][1])) ==
+                c &&
+            color_on(static_cast<Square>(horizontalAndVerticalLines[i][2])) ==
+                c) {
+            n++;
+        }
+    }
+
+    if (rule.hasDiagonalLines == true) {
+        for (int i = 0; i < 4; i++) {
+            if (color_on(static_cast<Square>(diagonalLines[i][0])) == c &&
+                color_on(static_cast<Square>(diagonalLines[i][1])) == c &&
+                color_on(static_cast<Square>(diagonalLines[i][2])) == c) {
+                n++;
+            }
+        }
+    }
+
+    return n;
+}
+
+bool Position::is_board_full_removal_at_placing_phase_end()
+{
+    if (rule.pieceCount == 12 &&
+        rule.boardFullAction != BoardFullAction::firstPlayerLose &&
+        rule.boardFullAction != BoardFullAction::agreeToDraw &&
+        phase == Phase::placing && pieceInHandCount[WHITE] == 0 &&
+        pieceInHandCount[BLACK] == 0 &&
+        // TODO: Performance
+        total_mills_count(BLACK) == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool Position::is_adjacent_to(Square s, Color c)
+{
+    for (int d = MD_BEGIN; d < MD_NB; d++) {
+        const Square moveSquare = MoveList<LEGAL>::adjacentSquares[s][d];
+        if (moveSquare != SQ_0 && color_on(moveSquare) == c) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Position::is_stalemate_removal()
+{
+    if (is_board_full_removal_at_placing_phase_end()) {
+        return true;
+    }
+
+    if (!(rule.stalemateAction ==
+              StalemateAction::removeOpponentsPieceAndChangeSideToMove ||
+          rule.stalemateAction ==
+              StalemateAction::removeOpponentsPieceAndMakeNextMove)) {
+        return false;
+    }
+
+    if (isStalemateRemoving == true) {
+        return true;
+    }
+
+    // TODO: StalemateAction: It is best to inform the engine of this state by
+    // the front end to improve performance.
+    if (is_all_surrounded(sideToMove)) {
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace Stockfish
