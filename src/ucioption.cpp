@@ -28,6 +28,8 @@
 #include "tt.h"
 #include "uci.h"
 
+#include "option.h"
+
 using std::string;
 
 namespace Stockfish {
@@ -44,6 +46,129 @@ static void on_threads(const Option& o) { Threads.set(size_t(o)); }
 static void on_use_NNUE(const Option&) { Eval::NNUE::init(); }
 static void on_eval_file(const Option&) { Eval::NNUE::init(); }
 
+static void on_skill_level(const Option& o)
+{
+    gameOptions.setSkillLevel(static_cast<int>(o));
+}
+
+static void on_move_time(const Option& o)
+{
+    gameOptions.setMoveTime(static_cast<int>(o));
+}
+
+static void on_aiIsLazy(const Option& o)
+{
+    gameOptions.setAiIsLazy(static_cast<bool>(o));
+}
+
+static void on_random_move(const Option& o)
+{
+    gameOptions.setShufflingEnabled(o);
+}
+
+static void on_algorithm(const Option& o)
+{
+    gameOptions.setAlgorithm(static_cast<int>(o));
+}
+
+static void on_drawOnHumanExperience(const Option& o)
+{
+    gameOptions.setDrawOnHumanExperience(o);
+}
+
+static void on_considerMobility(const Option& o)
+{
+    gameOptions.setConsiderMobility(o);
+}
+
+static void on_developerMode(const Option& o)
+{
+    gameOptions.setDeveloperMode(o);
+}
+
+// Rules
+
+static void on_piecesCount(const Option& o)
+{
+    rule.pieceCount = static_cast<int>(o);
+}
+
+static void on_flyPieceCount(const Option& o)
+{
+    rule.flyPieceCount = static_cast<int>(o);
+}
+
+static void on_piecesAtLeastCount(const Option& o)
+{
+    rule.piecesAtLeastCount = static_cast<int>(o);
+}
+
+static void on_hasDiagonalLines(const Option& o)
+{
+    rule.hasDiagonalLines = static_cast<bool>(o);
+}
+
+static void on_hasBannedLocations(const Option& o)
+{
+    rule.hasBannedLocations = static_cast<bool>(o);
+}
+
+static void on_mayMoveInPlacingPhase(const Option& o)
+{
+    rule.mayMoveInPlacingPhase = static_cast<bool>(o);
+}
+
+static void on_isDefenderMoveFirst(const Option& o)
+{
+    rule.isDefenderMoveFirst = static_cast<bool>(o);
+}
+
+static void on_mayRemoveMultiple(const Option& o)
+{
+    rule.mayRemoveMultiple = static_cast<bool>(o);
+}
+
+static void on_mayRemoveFromMillsAlways(const Option& o)
+{
+    rule.mayRemoveFromMillsAlways = static_cast<bool>(o);
+}
+
+static void on_mayOnlyRemoveUnplacedPieceInPlacingPhase(const Option& o)
+{
+    rule.mayOnlyRemoveUnplacedPieceInPlacingPhase = static_cast<bool>(o);
+}
+
+static void on_boardFullAction(const Option& o)
+{
+    rule.boardFullAction = static_cast<BoardFullAction>(static_cast<int>(o));
+}
+
+static void on_stalemateAction(const Option& o)
+{
+    rule.stalemateAction = static_cast<StalemateAction>(static_cast<int>(o));
+}
+
+static void on_mayFly(const Option& o)
+{
+    rule.mayFly = static_cast<bool>(o);
+}
+
+static void on_nMoveRule(const Option& o)
+{
+    rule.nMoveRule = static_cast<unsigned>(o);
+}
+
+static void on_endgameNMoveRule(const Option& o)
+{
+    rule.endgameNMoveRule = static_cast<unsigned>(o);
+}
+
+static void on_threefoldRepetitionRule(const Option& o)
+{
+    rule.threefoldRepetitionRule = static_cast<bool>(o);
+}
+
+
 /// Our case insensitive less() function as required by UCI protocol
 bool CaseInsensitiveLess::operator() (const string& s1, const string& s2) const {
 
@@ -58,23 +183,57 @@ void init(OptionsMap& o) {
 
   constexpr int MaxHashMB = Is64Bit ? 33554432 : 2048;
 
-  o["Debug Log File"]        << Option("", on_logger);
-  o["Threads"]               << Option(1, 1, 1024, on_threads);
-  o["Hash"]                  << Option(16, 1, MaxHashMB, on_hash_size);
-  o["Clear Hash"]            << Option(on_clear_hash);
-  o["Ponder"]                << Option(false);
-  o["MultiPV"]               << Option(1, 1, 500);
-  o["Skill Level"]           << Option(20, 0, 20);
-  o["Move Overhead"]         << Option(10, 0, 5000);
-  o["Slow Mover"]            << Option(100, 10, 1000);
-  o["nodestime"]             << Option(0, 0, 10000);
-  o["UCI_Chess960"]          << Option(false);
-  o["UCI_AnalyseMode"]       << Option(false);
-  o["UCI_LimitStrength"]     << Option(false);
-  o["UCI_Elo"]               << Option(1320, 1320, 3190);
+  o["Debug Log File"] << Option("", on_logger);
+  o["Threads"] << Option(1, 1, 1024, on_threads);
+  o["Hash"] << Option(16, 1, MaxHashMB, on_hash_size);
+  o["Clear Hash"] << Option(on_clear_hash);
+  o["Ponder"] << Option(false);
+  o["MultiPV"] << Option(1, 1, 500);
+  o["SkillLevel"] << Option(1, 0, 30, on_skill_level);
+
+  o["Move Overhead"] << Option(10, 0, 5000);
+  o["Slow Mover"] << Option(100, 10, 1000);
+  o["nodestime"] << Option(0, 0, 10000);
+  o["UCI_AnalyseMode"] << Option(false);
+  o["UCI_LimitStrength"] << Option(false);
+  o["UCI_Elo"] << Option(1320, 1320, 3190);
   o["UCI_ShowWDL"]           << Option(false);
   o["Use NNUE"]              << Option(false, on_use_NNUE);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
+
+  o["MoveTime"] << Option(1, 0, 60, on_move_time);
+  o["AiIsLazy"] << Option(false, on_aiIsLazy);
+  o["Shuffling"] << Option(true, on_random_move);
+  o["Algorithm"] << Option(2, 0, 2, on_algorithm);
+  o["DrawOnHumanExperience"] << Option(true, on_drawOnHumanExperience);
+  o["ConsiderMobility"] << Option(true, on_considerMobility);
+  o["DeveloperMode"] << Option(true, on_developerMode);
+
+  // Rules
+  o["PiecesCount"] << Option(9, 9, 12, on_piecesCount);
+  o["flyPieceCount"] << Option(3, 3, 4, on_flyPieceCount);
+  o["PiecesAtLeastCount"] << Option(3, 3, 5, on_piecesAtLeastCount);
+  o["HasDiagonalLines"] << Option(false, on_hasDiagonalLines);
+  o["HasBannedLocations"] << Option(false, on_hasBannedLocations);
+  o["MayMoveInPlacingPhase"] << Option(false, on_mayMoveInPlacingPhase);
+  o["IsDefenderMoveFirst"] << Option(false, on_isDefenderMoveFirst);
+  o["MayRemoveMultiple"] << Option(false, on_mayRemoveMultiple);
+  o["MayRemoveFromMillsAlways"] << Option(false, on_mayRemoveFromMillsAlways);
+  o["MayOnlyRemoveUnplacedPieceInPlacingPhase"]
+      << Option(false, on_mayOnlyRemoveUnplacedPieceInPlacingPhase);
+  o["BoardFullAction"] << Option(
+      static_cast<int>(BoardFullAction::firstPlayerLose),
+      static_cast<int>(BoardFullAction::firstPlayerLose),
+      static_cast<int>(BoardFullAction::agreeToDraw), on_boardFullAction);
+  o["StalemateAction"] << Option(
+      static_cast<int>(StalemateAction::endWithStalemateLoss),
+      static_cast<int>(StalemateAction::endWithStalemateLoss),
+      static_cast<int>(StalemateAction::endWithStalemateDraw),
+      on_stalemateAction);
+  o["MayFly"] << Option(true, on_mayFly);
+  o["NMoveRule"] << Option(100, 10, 200, on_nMoveRule);
+  o["EndgameNMoveRule"] << Option(100, 5, 200, on_endgameNMoveRule);
+  o["ThreefoldRepetitionRule"] << Option(true, on_threefoldRepetitionRule);
 }
 
 
