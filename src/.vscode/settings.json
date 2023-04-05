@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.vcxproj": "cpp",
+        "xstring": "cpp"
+    }
+}
