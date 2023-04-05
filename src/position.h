@@ -134,14 +134,14 @@ public:
   StateInfo* state() const;
 
   void put_piece(Piece pc, Square s);
-  void remove_piece(Square s);
+  bool remove_piece(Square s);
 
 private:
   // Initialization helpers (used while setting up a position)
   void set_state() const;
 
   // Other helpers
-  void move_piece(Square from, Square to);
+  bool move_piece(Square from, Square to);
   template<bool AfterMove>
   Key adjust_key50(Key k) const;
 
@@ -359,6 +359,7 @@ inline Thread* Position::this_thread() const {
   return thisThread;
 }
 
+#if 0
 inline void Position::put_piece(Piece pc, Square s) {
 
   board[s] = pc;
@@ -389,6 +390,7 @@ inline void Position::move_piece(Square from, Square to) {
   board[from] = NO_PIECE;
   board[to] = pc;
 }
+#endif
 
 inline StateInfo* Position::state() const {
 

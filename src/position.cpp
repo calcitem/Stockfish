@@ -490,12 +490,12 @@ bool Position::pseudo_legal(const Move m) const {
 /// moves should be filtered out before this function is called.
 
 void Position::do_move(Move m, StateInfo& newSt) {
-// TODO: Sanmill
+
   assert(is_ok(m));
   assert(&newSt != st);
 
   thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-  Key k = st->key ^ Zobrist::side;
+  //Key k = st->key ^ Zobrist::side;
 
   // Copy some fields of the old state to our new StateInfo object except the
   // ones which are going to be recalculated from scratch anyway and then switch
@@ -505,7 +505,7 @@ void Position::do_move(Move m, StateInfo& newSt) {
   st = &newSt;
 
   // Increment ply counters. In particular, rule50 will be reset to zero later on
-  // in case of a capture or a pawn move.
+  // in case of a capture.
   ++gamePly;
   ++st->rule50;
   ++st->pliesFromNull;
@@ -522,42 +522,41 @@ void Position::do_move(Move m, StateInfo& newSt) {
   Square to = to_sq(m);
   Piece pc = piece_on(from);
 
-  auto captured = piece_on(to);
+  Piece captured = NO_PIECE;
+  Square capsq = to;
 
   //assert(color_of(pc) == us);
 
-  if (type_of(m) == MOVETYPE_REMOVE)
-  {
-      Square capsq = to;
-    // TODO: Sanmill
+  const MoveType mt = type_of(m);
 
-      st->material[them] -= PieceValue;
-
-      if (Eval::useNNUE)
-      {
-          dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
-          dp.piece[1] = captured;
-          dp.from[1] = capsq;
-          dp.to[1] = SQ_NONE;
+  switch (mt) {
+  case MOVETYPE_REMOVE: 
+      if (Eval::useNNUE) {
+            dp.dirty_num = 2; // 1 piece moved, 1 piece captured
+            dp.piece[1] = captured;
+            dp.from[1] = capsq;
+            dp.to[1] = SQ_NONE;
       }
-
-      // Update board and piece lists
-      remove_piece(capsq);
-
-      // Reset rule 50 counter
+      remove_piece(capsq);      
+      st->rule50 = 0;      
+      break;
+  case MOVETYPE_MOVE:
+      move_piece(from, to);
+      st->material[them] -= PieceValue;
+      break;
+  case MOVETYPE_PLACE:
+      put_piece(to_sq(m));
       st->rule50 = 0;
+      break;
   }
-
-  // Update hash key
-  k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
   // Set capture piece
   st->capturedPiece = captured;
 
   // Update the key with the final value
-  st->key = k;
+  //st->key = k;
 
-  sideToMove = ~sideToMove;
+  //sideToMove = ~sideToMove;
 
   // Calculate the repetition info. It is the ply distance from the previous
   // occurrence of the same position, negative in the 3-fold case, or zero
@@ -1110,8 +1109,15 @@ bool Position::put_piece(Square s)
     return true;
 }
 
+inline void Position::put_piece(Piece pc, Square s)
+{
+    board[s] = pc;
+    byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
+    byColorBB[color_of(pc)] |= s;
+}
+
 // TODO: Sanmill
-#if 0
+#if 1
 bool Position::remove_piece(Square s)
 {
     if (phase == Phase::ready || phase == Phase::gameOver)
@@ -1162,7 +1168,7 @@ bool Position::remove_piece(Square s)
     }
 
     
-    st.rule50 = 0; // TODO(calcitem): Need to move out?
+    st->rule50 = 0; // TODO(calcitem): Need to move out?
     
     pieceOnBoardCount[them]--;
 
@@ -1235,6 +1241,17 @@ bool Position::select_piece(Square s)
         action = Action::place;
 
         return true;
+    }
+
+    return false;
+}
+
+inline bool Position::move_piece(Square from, Square to)
+{
+    if (select_piece(from)) {
+        if (put_piece(to)) {
+            return true;
+        }
     }
 
     return false;
