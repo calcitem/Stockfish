@@ -509,6 +509,14 @@ constexpr Square to_sq(Move m)
     return static_cast<Square>(m & 0x00FF);
 }
 
+// Move encoding is 0x00FF00FF
+// 0x00FF is from square
+// 0xFF00 is to square
+// 0x10000 is remove flag
+constexpr int from_to(Move m) {
+    return (m >> 8) & 0xFFFF;
+}
+
 constexpr MoveType type_of(Move m)
 {
     if (m < 0) {
