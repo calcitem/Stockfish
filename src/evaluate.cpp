@@ -200,7 +200,7 @@ namespace {
 
   public:
     Evaluation() = delete;
-    explicit Evaluation(const Position& p) : pos(p) {}
+    explicit Evaluation(Position& p) : pos(p) {}
     Evaluation& operator=(const Evaluation&) = delete;
     Value value();
 
@@ -209,36 +209,6 @@ namespace {
     Material::Entry* me;
     Bitboard mobilityArea[COLOR_NB];
     Score mobility[COLOR_NB] = { SCORE_ZERO, SCORE_ZERO };
-
-    // attackedBy[color][piece type] is a bitboard representing all squares
-    // attacked by a given color and piece type. Special "piece types" which
-    // is also calculated is ALL_PIECES.
-    Bitboard attackedBy[COLOR_NB][PIECE_TYPE_NB];
-
-    // attackedBy2[color] are the squares attacked by at least 2 units of a given
-    // color, including x-rays. But diagonal x-rays through pawns are not computed.
-    Bitboard attackedBy2[COLOR_NB];
-
-    // kingRing[color] are the squares adjacent to the king plus some other
-    // very near squares, depending on king position.
-    Bitboard kingRing[COLOR_NB];
-
-    // kingAttackersCount[color] is the number of pieces of the given color
-    // which attack a square in the kingRing of the enemy king.
-    int kingAttackersCount[COLOR_NB];
-
-    // kingAttackersWeight[color] is the sum of the "weights" of the pieces of
-    // the given color which attack a square in the kingRing of the enemy king.
-    // The weights of the individual piece types are given by the elements in
-    // the KingAttackWeights array.
-    int kingAttackersWeight[COLOR_NB];
-
-    // kingAttacksCount[color] is the number of attacks by the given color to
-    // squares directly adjacent to the enemy king. Pieces which attack more
-    // than one square are counted multiple times. For instance, if there is
-    // a white knight on g5 and black's king is on g8, this white knight adds 2
-    // to kingAttacksCount[WHITE].
-    int kingAttacksCount[COLOR_NB];
   };
 
   // Evaluation::value() is the main function of the class. It computes the various
@@ -367,15 +337,6 @@ namespace {
   }
 
 } // namespace Eval
-
-
-/// evaluate() is the evaluator for the outer world. It returns a static
-/// evaluation of the position from the point of view of the side to move.
-
-Value Eval::evaluate(const Position& pos, int* complexity) {
-
-    return Evaluation(pos).value();
-}
 
 /// trace() is like evaluate(), but instead of returning a value, it returns
 /// a string (suitable for outputting to stdout) that contains the detailed

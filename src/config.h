@@ -106,7 +106,7 @@ constexpr auto DEPTH_ADJUST = 0;
 
 // #define BITBOARD_DEBUG
 #ifndef USE_POPCNT
-#define USE_POPCNT
+//#define USE_POPCNT
 #endif
 
 #ifndef USE_POPCNT

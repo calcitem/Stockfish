@@ -20,7 +20,7 @@
 #define MOVEGEN_H_INCLUDED
 
 #include <algorithm>
-
+#include <array>
 #include "types.h"
 
 namespace Stockfish {
@@ -45,7 +45,7 @@ inline bool operator<(const ExtMove& f, const ExtMove& s) {
   return f.value < s.value;
 }
 
-template<GenType>
+
 ExtMove* generate(const Position& pos, ExtMove* moveList);
 
 /// The MoveList struct is a simple wrapper around generate(). It sometimes comes
@@ -53,7 +53,7 @@ ExtMove* generate(const Position& pos, ExtMove* moveList);
 template<GenType T>
 struct MoveList {
 
-  explicit MoveList(const Position& pos) : last(generate<T>(pos, moveList)) {}
+  explicit MoveList(const Position& pos) : last(generate(pos, moveList)) {}
   const ExtMove* begin() const { return moveList; }
   const ExtMove* end() const { return last; }
   size_t size() const { return last - moveList; }
@@ -62,7 +62,7 @@ struct MoveList {
   }
 
     static void create();
-    static void shuffle();
+    //static void shuffle();
 
     inline static std::array<Square, SQUARE_NB> movePriorityList {
         SQ_16, SQ_18, SQ_20, SQ_22, SQ_24, SQ_26, SQ_28, SQ_30,

@@ -57,7 +57,7 @@ namespace {
 /// ordering is at the current node.
 
 /// MovePicker constructor for the main search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d,
+MovePicker::MovePicker(Position& p, Move ttm, Depth d,
                                                              Move cm,
                                                              const Move* killers)
            : pos(p),
@@ -82,14 +82,6 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d,
             && pos.pseudo_legal(ttm));
 }
 
-/// MovePicker constructor for ProbCut: we generate captures with SEE greater
-/// than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, Value th, ttMove(ttm), threshold(th)
-{
-   stage = PROBCUT_TT + !(ttm 
-                             && pos.pseudo_legal(ttm)
-                             && pos.see_ge(ttm, threshold));
-}
 
 /// MovePicker::score() assigns a numerical value to each move in a list, used
 /// for sorting. Captures are ordered by Most Valuable Victim (MVV), preferring
@@ -113,7 +105,7 @@ void MovePicker::score() {
 
         // if stat before moving, moving phrase maybe from @-0-@ to 0-@-@, but
         // no mill, so need |from| to judge
-        const int ourMillsCount = pos.potential_mills_count(
+        int ourMillsCount = pos.potential_mills_count(
             to, pos.side_to_move(), from);
 
 #ifndef SORT_MOVE_WITHOUT_HUMAN_KNOWLEDGE
@@ -226,7 +218,7 @@ Move MovePicker::select(Pred filter) {
 /// moves left, picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move(bool skipQuiets) {
 
-    endMoves = generate<LEGAL>(pos, moves);
+    endMoves = generate(pos, moves);
 
     score<LEGAL>();
     partial_insertion_sort(moves, endMoves, INT_MIN);

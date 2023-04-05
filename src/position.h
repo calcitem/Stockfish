@@ -382,10 +382,6 @@ inline void Position::move_piece(Square from, Square to) {
   board[to] = pc;
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt) {
-  do_move(m, newSt);
-}
-
 inline StateInfo* Position::state() const {
 
   return st;

@@ -29,8 +29,7 @@ namespace {
 
     /// generate<MOVE> generates all moves.
     /// Returns a pointer to the end of the move moves.
-    template <GenType Type>
-    ExtMove* generate<MOVE>(Position& pos, ExtMove* moveList)
+    ExtMove* generate_move(Position& pos, ExtMove* moveList)
     {
         ExtMove* cur = moveList;
 
@@ -65,8 +64,7 @@ namespace {
 
     /// generate<PLACE> generates all places.
     /// Returns a pointer to the end of the move list.
-    template <GenType Type>
-    ExtMove* generate<PLACE>(Position& pos, ExtMove* moveList)
+    ExtMove* generate_place(Position& pos, ExtMove* moveList)
     {
         ExtMove* cur = moveList;
 
@@ -81,8 +79,7 @@ namespace {
 
     /// generate<REMOVE> generates all removes.
     /// Returns a pointer to the end of the move moves.
-    template <GenType Type>
-    ExtMove* generate<REMOVE>(Position& pos, ExtMove* moveList)
+    ExtMove* generate_remove(Position& pos, ExtMove* moveList)
     {
         const Color us = pos.side_to_move();
         const Color them = ~us;
@@ -129,8 +126,8 @@ namespace {
 
     /// generate<LEGAL> generates all the legal moves in the given position
 
-    template <GenType Type>
-    ExtMove* generate<LEGAL>(Position& pos, ExtMove* moveList)
+
+    ExtMove* generate(Position& pos, ExtMove* moveList)
     {
         ExtMove* cur = moveList;
 
@@ -138,17 +135,17 @@ namespace {
         case Action::select:
         case Action::place:
             if (pos.get_phase() == Phase::placing || pos.get_phase() == Phase::ready) {
-                return generate<PLACE>(pos, moveList);
+                return generate_place(pos, moveList);
             }
 
             if (pos.get_phase() == Phase::moving) {
-                return generate<MOVE>(pos, moveList);
+                return generate_move(pos, moveList);
             }
 
             break;
 
         case Action::remove:
-            return generate<REMOVE>(pos, moveList);
+            return generate_remove(pos, moveList);
 
         case Action::none:
 #ifdef FLUTTER_UI
@@ -161,17 +158,23 @@ namespace {
         return cur;
     }
 
+    // TODO: Sanmill
+        #if 0
+
     template <GenType Type>
-    void MoveList<LEGAL>::create()
+    void MoveList::create()
     {
         Mills::adjacent_squares_init();
     }
 
+
+
     template <GenType Type>
-    void MoveList<LEGAL>::shuffle()
+    void MoveList::shuffle()
     {
         Mills::move_priority_list_shuffle();
     }
+    #endif
 }
 
 } // namespace Stockfish

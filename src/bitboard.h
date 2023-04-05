@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "config.h"
+
 #include "types.h"
 
 #define SET_BIT(x, bit) ((x) |= (1 << (bit)))

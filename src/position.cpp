@@ -1398,16 +1398,16 @@ inline void Position::set_side_to_move(Color c)
 inline void Position::change_side_to_move()
 {
     set_side_to_move(~sideToMove);
-    st.key ^= Zobrist::side;
+    st->key ^= Zobrist::side;
 }
 
 inline Key Position::update_key(Square s)
 {
     const int pieceType = color_on(s);
 
-    st.key ^= Zobrist::psq[pieceType][s];
+    st->key ^= Zobrist::psq[pieceType][s];
 
-    return st.key;
+    return st->key;
 }
 
 inline Key Position::revert_key(Square s)
@@ -1417,14 +1417,14 @@ inline Key Position::revert_key(Square s)
 
 Key Position::update_key_misc()
 {
-    st.key = st.key << Zobrist::KEY_MISC_BIT >> Zobrist::KEY_MISC_BIT;
+    st->key = st->key << Zobrist::KEY_MISC_BIT >> Zobrist::KEY_MISC_BIT;
 
     // TODO: pieceToRemoveCount[sideToMove] or
     // abs(pieceToRemoveCount[sideToMove] - pieceToRemoveCount[~sideToMove])?
-    st.key |= static_cast<Key>(pieceToRemoveCount[sideToMove])
+    st->key |= static_cast<Key>(pieceToRemoveCount[sideToMove])
               << (CHAR_BIT * sizeof(Key) - Zobrist::KEY_MISC_BIT);
 
-    return st.key;
+    return st->key;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

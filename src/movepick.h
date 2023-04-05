@@ -117,14 +117,10 @@ class MovePicker {
   enum PickType { Next, Best };
 
 public:
-  MovePicker(const MovePicker&) = delete;
+  MovePicker(MovePicker&) = delete;
   MovePicker& operator=(const MovePicker&) = delete;
-  MovePicker(const Position&, Move, Depth,
-                                           Move,
-                                           const Move*);
-  MovePicker(const Position&, Move, Depth,
-                                           Square);
-  MovePicker(const Position&, Move, Value);
+  MovePicker(Position&, Move, Depth, Move,const Move*);
+  MovePicker(const Position&, Move, Depth, Square);
   Move next_move(bool skipQuiets = false);
 
   Bitboard threatenedPieces;

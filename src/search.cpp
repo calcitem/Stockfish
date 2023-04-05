@@ -280,13 +280,10 @@ void Thread::search() {
   if (mainThread)
   {
 
-      int rootComplexity;
       if (Eval::useNNUE)
-          Eval::NNUE::evaluate(rootPos, true, &rootComplexity);
+          Eval::NNUE::evaluate(rootPos, true);
       else
-          Eval::evaluate(rootPos, &rootComplexity);
-
-      mainThread->complexity = std::min(1.03 + (rootComplexity - 241) / 1552.0, 1.45);
+          Eval::evaluate(rootPos);
 
       if (mainThread->bestPreviousScore == VALUE_INFINITE)
           for (int i = 0; i < 4; ++i)
@@ -458,7 +455,7 @@ void Thread::search() {
           double reduction = (1.4 + mainThread->previousTimeReduction) / (2.08 * timeReduction);
           double bestMoveInstability = 1 + 1.8 * totBestMoveChanges / Threads.size();
 
-          double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability * mainThread->complexity;
+          double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability;
 
           // Cap used time in case of a single legal move for a better viewer experience in tournaments
           // yielding correct scores and sufficiently fast moves.
@@ -541,7 +538,7 @@ namespace {
     bool givesCheck, improving;
     bool moveCountPruning;
     Piece movedPiece;
-    int moveCount, captureCount, quietCount, improvement, complexity;
+    int moveCount, captureCount, quietCount, improvement;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -637,17 +634,15 @@ namespace {
         // Providing the hint that this node's accumulator will be used often brings significant Elo gain (13 Elo)
         Eval::NNUE::hint_common_parent_position(pos);
         eval = ss->staticEval;
-        complexity = abs(ss->staticEval - pos.material_diff());    // TODO: Sanmill
     }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
         ss->staticEval = eval = tte->eval();
         if (eval == VALUE_NONE)
-            ss->staticEval = eval = evaluate(pos, &complexity);
+            ss->staticEval = eval = evaluate(pos);
         else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
         {
-            complexity = abs(ss->staticEval - pos.material_diff());    // TODO: Sanmill
             if (PvNode)
                Eval::NNUE::hint_common_parent_position(pos);
         }
@@ -659,16 +654,9 @@ namespace {
     }
     else
     {
-        ss->staticEval = eval = evaluate(pos, &complexity);
+        ss->staticEval = eval = evaluate(pos);
         // Save static evaluation into transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
-    }
-
-    // Use static evaluation difference to improve quiet move ordering (~4 Elo)
-    if (is_ok((ss-1)->currentMove))
-    {
-        int bonus = std::clamp(-19 * int((ss-1)->staticEval + ss->staticEval), -1920, 1920);
-        thisThread->mainHistory[~us][from_to((ss-1)->currentMove)] << bonus;
     }
 
     // Set up the improvement variable, which is the difference between the current
@@ -703,14 +691,13 @@ namespace {
         && (ss-1)->currentMove != MOVE_NULL
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        &&  ss->staticEval >= beta - 19 * depth - improvement / 13 + 253 + complexity / 25
         && !excludedMove
         && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
     {
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth, eval and complexity of position
-        Depth R = std::min(int(eval - beta) / 168, 6) + depth / 3 + 4 - (complexity > 825);
+        Depth R = std::min(int(eval - beta) / 168, 6) + depth / 3 + 4;
 
         ss->currentMove = MOVE_NULL;
 
@@ -746,54 +733,6 @@ namespace {
     }
 
     probCutBeta = beta + 186 - 54 * improving;
-
-    // Step 10. ProbCut (~10 Elo)
-    // If we have a good enough capture (or queen promotion) and a reduced search returns a value
-    // much above beta, we can (almost) safely prune the previous move.
-    if (   !PvNode
-        &&  depth > 4
-        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
-        // if value from transposition table is lower than probCutBeta, don't attempt probCut
-        // there and in further interactions with transposition table cutoff depth is set to depth - 3
-        // because probCut search has depth set to depth - 4 but we also do a move before it
-        // so effective depth is equal to depth - 3
-        && !(   ss->ttHit
-             && tte->depth() >= depth - 3
-             && ttValue != VALUE_NONE
-             && ttValue < probCutBeta))
-    {
-        assert(probCutBeta < VALUE_INFINITE);
-
-        MovePicker mp(pos, ttMove, probCutBeta - ss->staticEval);
-
-        while ((move = mp.next_move()) != MOVE_NONE)
-            if (move != excludedMove && pos.legal(move))
-            {
-                assert(pos.capture_stage(move));
-
-                ss->currentMove = move;
-
-                pos.do_move(move, st);
-
-                // Perform a preliminary qsearch to verify that the move holds
-                value = -qsearch<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1);
-
-                // If the qsearch held, perform the regular search
-                if (value >= probCutBeta)
-                    value = -search<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1, depth - 4, !cutNode);
-
-                pos.undo_move(move);
-
-                if (value >= probCutBeta)
-                {
-                    // Save ProbCut data into transposition table
-                    tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3, move, ss->staticEval);
-                    return value;
-                }
-            }
-
-        Eval::NNUE::hint_common_parent_position(pos);
-    }
 
     // Step 11. If the position is not in TT, decrease depth by 2 (or by 4 if the TT entry for the current position was hit and the stored depth is greater than or equal to the current depth).
     // Use qsearch if depth is equal or below zero (~9 Elo)
@@ -954,12 +893,6 @@ moves_loop: // When in check, search starts here
                   extension = -1;
           }
 
-          // Check extensions (~1 Elo)
-          else if (   givesCheck
-                   && depth > 10
-                   && abs(ss->staticEval) > 88)
-              extension = 1;
-
           // Quiet ttMove extensions (~1 Elo)
           else if (   PvNode
                    && move == ttMove
@@ -978,7 +911,7 @@ moves_loop: // When in check, search starts here
       ss->currentMove = move;
 
       // Step 16. Make the move
-      pos.do_move(move, st, givesCheck);
+      pos.do_move(move, st);
 
       // Decrease reduction if position is or has been on the PV
       // and node is not likely to fail low. (~3 Elo)
@@ -1039,8 +972,6 @@ moves_loop: // When in check, search starts here
 
               int bonus = value > alpha ?  stat_bonus(newDepth)
                                         : -stat_bonus(newDepth);
-
-              update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
           }
       }
 
@@ -1182,18 +1113,6 @@ moves_loop: // When in check, search starts here
 
     if (!moveCount)
         bestValue = excludedMove ? alpha : mated_in(ss->ply);
-
-    // If there is a move which produces search value greater than alpha we update stats of searched moves
-    else if (bestMove)
-        update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq,
-                         quietsSearched, quietCount, capturesSearched, captureCount, depth);
-
-    // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
-    {
-        int bonus = (depth > 5) + (PvNode || cutNode) + (bestValue < alpha - 97 * depth) + ((ss-1)->moveCount > 10);
-        update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth) * bonus);
-    }
 
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
