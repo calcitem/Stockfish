@@ -45,11 +45,7 @@ struct StateInfo {
 
   // Not copied when making a move (will be recomputed anyhow)
   Key        key;
-  Bitboard   checkersBB;
   StateInfo* previous;
-  Bitboard   blockersForKing[COLOR_NB];
-  Bitboard   pinners[COLOR_NB];
-  Bitboard   checkSquares[PIECE_TYPE_NB];
   Piece      capturedPiece;
   int        repetition;
 
@@ -96,17 +92,6 @@ public:
   template<PieceType Pt> int count(Color c) const;
   template<PieceType Pt> int count() const;
   template<PieceType Pt> Square square(Color c) const;
-
-  // Checking
-  Bitboard checkers() const;
-  Bitboard blockers_for_king(Color c) const;    // TODO: Sanmill
-  Bitboard check_squares(PieceType pt) const;
-  Bitboard pinners(Color c) const;
-
-  // Attacks to/from a given square
-  Bitboard attackers_to(Square s) const;
-  Bitboard attackers_to(Square s, Bitboard occupied) const;
-  template<PieceType Pt> Bitboard attacks_by(Color c) const;
 
   // Properties of moves
   bool legal(Move m) const;
@@ -226,42 +211,6 @@ template<PieceType Pt> inline Square Position::square(Color c) const {
   return lsb(pieces(c, Pt));
 }
 
-inline Bitboard Position::attackers_to(Square s) const {
-  return attackers_to(s, pieces());
-}
-
-template<PieceType Pt>
-inline Bitboard Position::attacks_by(Color c) const {
-    // TODO: Sanmill
-  if constexpr (Pt == PAWN)
-      return c == WHITE ? pawn_attacks_bb<WHITE>(pieces(WHITE, PAWN))
-                        : pawn_attacks_bb<BLACK>(pieces(BLACK, PAWN));
-  else
-  {
-      Bitboard threats = 0;
-      Bitboard attackers = pieces(c, Pt);
-      while (attackers)
-          threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
-      return threats;
-  }
-}
-
-inline Bitboard Position::checkers() const {
-  return st->checkersBB;
-}
-
-inline Bitboard Position::blockers_for_king(Color c) const {
-  return st->blockersForKing[c];
-}
-
-inline Bitboard Position::pinners(Color c) const {
-  return st->pinners[c];
-}
-
-inline Bitboard Position::check_squares(PieceType pt) const {
-  return st->checkSquares[pt];
-}
-
 inline Key Position::key() const {
   return adjust_key50<false>(st->key);
 }
@@ -285,14 +234,13 @@ inline int Position::game_ply() const {
   return gamePly;
 }
 
-inline int Position::rule60_count() const {
-  return st->rule60;
+inline int Position::rule50_count() const {
+  return st->rule50;
 }
 
 inline bool Position::capture(Move m) const {
   assert(is_ok(m));
-  return     (!empty(to_sq(m)) && type_of(m) != CASTLING)    // TODO: Sanmill
-          ||  type_of(m) == EN_PASSANT;
+  return     (!empty(to_sq(m)))    // TODO: Sanmill
 }
 
 // returns true if a move is generated from the capture stage
@@ -300,7 +248,7 @@ inline bool Position::capture(Move m) const {
 // is needed to avoid the generation of duplicate moves.
 inline bool Position::capture_stage(Move m) const {
   assert(is_ok(m));
-  return  capture(m) || promotion_type(m) == QUEEN;
+  return  capture(m);
 }
 
 inline Piece Position::captured_piece() const {
