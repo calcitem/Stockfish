@@ -21,6 +21,8 @@
 #include "position.h"
 #include "types.h"
 
+using namespace Stockfish;
+
 #define loseReasonNoWayStr "Player%hhu no way to go. Player%hhu win!"
 #define loseReasonTimeOverStr "Time over. Player%hhu win!"
 #define drawReasonThreefoldRepetitionStr "Threefold Repetition. Draw!"

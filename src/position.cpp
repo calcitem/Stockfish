@@ -192,9 +192,9 @@ void Position::init() {
 
     PRNG rng(1070372);
 
-    for (const PieceType pt : PieceTypes)
+    for (Piece pc : Pieces) // TODO: Sanmill
         for (Square s = SQ_BEGIN; s < SQ_END; ++s)
-            Zobrist::psq[pt][s] = rng.rand<Key>() << Zobrist::KEY_MISC_BIT >>
+        Zobrist::psq[pc][s] = rng.rand<Key>() << Zobrist::KEY_MISC_BIT >>
                                   Zobrist::KEY_MISC_BIT;
 
     Zobrist::side = rng.rand<Key>() << Zobrist::KEY_MISC_BIT >>
@@ -481,7 +481,7 @@ bool Position::pseudo_legal(const Move m) const {
 /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
 /// moves should be filtered out before this function is called.
 
-void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
+void Position::do_move(Move m, StateInfo& newSt) {
 // TODO: Sanmill
   assert(is_ok(m));
   assert(&newSt != st);
@@ -630,8 +630,6 @@ void Position::do_null_move(StateInfo& newSt) {
   st->pliesFromNull = 0;
 
   sideToMove = ~sideToMove;
-
-  set_check_info();
 
   st->repetition = 0;
 
@@ -836,10 +834,8 @@ bool Position::pos_is_ok() const {
 
 bool Position::reset()
 {
-    repetition = 0;
-
     gamePly = 0;
-    st.rule50 = 0;
+    st->rule50 = 0;
 
     phase = Phase::ready;
     set_side_to_move(WHITE);
@@ -852,7 +848,7 @@ bool Position::reset()
     memset(byTypeBB, 0, sizeof(byTypeBB));
     memset(byColorBB, 0, sizeof(byColorBB));
 
-    st.key = 0;
+    st->key = 0;
 
     pieceOnBoardCount[WHITE] = pieceOnBoardCount[BLACK] = 0;
     pieceInHandCount[WHITE] = pieceInHandCount[BLACK] = rule.pieceCount;
@@ -911,7 +907,7 @@ bool Position::start()
     return false;
 }
 
-bool Position::put_piece(Square s, bool updateRecord)
+bool Position::put_piece(Square s)
 {
     const Color us = sideToMove;
 
@@ -940,11 +936,6 @@ bool Position::put_piece(Square s, bool updateRecord)
         update_key(s);
 
         updateMobility(MOVETYPE_PLACE, s);
-
-        if (updateRecord) {
-            snprintf(record, RECORD_LEN_MAX, "(%1d,%1d)", file_of(s),
-                     rank_of(s));
-        }
 
         currentSquare = s;
 
@@ -1053,12 +1044,8 @@ bool Position::put_piece(Square s, bool updateRecord)
             }
         }
 
-        if (updateRecord) {
-            snprintf(record, RECORD_LEN_MAX, "(%1d,%1d)->(%1d,%1d)",
-                     file_of(currentSquare), rank_of(currentSquare), file_of(s),
-                     rank_of(s));
-            st.rule50++;
-        }
+        
+        st->rule50++;        
 
         const Piece pc = board[currentSquare];
 
@@ -1113,7 +1100,9 @@ bool Position::put_piece(Square s, bool updateRecord)
     return true;
 }
 
-bool Position::remove_piece(Square s, bool updateRecord)
+// TODO: Sanmill
+#if 0
+bool Position::remove_piece(Square s)
 {
     if (phase == Phase::ready || phase == Phase::gameOver)
         return false;
@@ -1162,11 +1151,9 @@ bool Position::remove_piece(Square s, bool updateRecord)
         board[s] = NO_PIECE;
     }
 
-    if (updateRecord) {
-        snprintf(record, RECORD_LEN_MAX, "-(%1d,%1d)", file_of(s), rank_of(s));
-        st.rule50 = 0; // TODO(calcitem): Need to move out?
-    }
-
+    
+    st.rule50 = 0; // TODO(calcitem): Need to move out?
+    
     pieceOnBoardCount[them]--;
 
     if (pieceOnBoardCount[them] + pieceInHandCount[them] <
@@ -1223,6 +1210,7 @@ check:
 
     return true;
 }
+#endif
 
 bool Position::select_piece(Square s)
 {
@@ -1256,66 +1244,6 @@ bool Position::resign(Color loser)
     return true;
 }
 
-bool Position::command(const char *cmd)
-{
-    unsigned int ruleNo = 0;
-    unsigned t = 0;
-    int step = 0;
-    File file1 = FILE_A, file2 = FILE_A;
-    Rank rank1 = RANK_1, rank2 = RANK_1;
-
-    if (sscanf(cmd, "r%1u s%3d t%2u", &ruleNo, &step, &t) == 3) {
-        if (set_rule(ruleNo - 1) == false) {
-            return false;
-        }
-
-        return reset();
-    }
-
-    int args = sscanf(cmd, "(%1u,%1u)->(%1u,%1u)",
-                      reinterpret_cast<unsigned *>(&file1),
-                      reinterpret_cast<unsigned *>(&rank1),
-                      reinterpret_cast<unsigned *>(&file2),
-                      reinterpret_cast<unsigned *>(&rank2));
-
-    if (args >= 4) {
-        return move_piece(file1, rank1, file2, rank2);
-    }
-
-    args = sscanf(cmd, "-(%1u,%1u)", reinterpret_cast<unsigned *>(&file1),
-                  reinterpret_cast<unsigned *>(&rank1));
-    if (args >= 2) {
-        return remove_piece(file1, rank1);
-    }
-
-    args = sscanf(cmd, "(%1u,%1u)", reinterpret_cast<unsigned *>(&file1),
-                  reinterpret_cast<unsigned *>(&rank1));
-    if (args >= 2) {
-        return put_piece(file1, rank1);
-    }
-
-    args = sscanf(cmd, "Player%1u give up!", &t);
-
-    if (args == 1) {
-        return resign(static_cast<Color>(t));
-    }
-
-    if (rule.threefoldRepetitionRule) {
-        if (!strcmp(cmd, drawReasonThreefoldRepetitionStr)) {
-            return true;
-        }
-
-        if (!strcmp(cmd, "draw")) {
-            set_gameover(DRAW, GameOverReason::drawThreefoldRepetition);
-            // snprintf(record, RECORD_LEN_MAX,
-            // drawReasonThreefoldRepetitionStr);
-            return true;
-        }
-    }
-
-    return false;
-}
-
 Color Position::get_winner() const noexcept
 {
     return winner;
@@ -1345,6 +1273,8 @@ void Position::update_score()
 bool Position::check_if_game_is_over()
 {
 #ifdef RULE_50
+    // TODO: Sanmill
+    #if 0
     if (rule.nMoveRule > 0 && posKeyHistory.size() >= rule.nMoveRule) {
         set_gameover(DRAW, GameOverReason::drawRule50);
         return true;
@@ -1355,6 +1285,7 @@ bool Position::check_if_game_is_over()
         set_gameover(DRAW, GameOverReason::drawEndgameRule50);
         return true;
     }
+    #endif
 #endif // RULE_50
 
     if (rule.pieceCount == 12 &&

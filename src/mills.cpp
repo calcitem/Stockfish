@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <random>
+#include <array>
 
 #include "bitboard.h"
 #include "mills.h"
@@ -23,6 +24,8 @@
 #include "movegen.h"
 #include "option.h"
 #include "position.h"
+
+using namespace Stockfish;
 
 namespace Mills {
 

@@ -168,13 +168,105 @@ inline int popcount(Bitboard b) noexcept
 #endif
 }
 
+/// lsb() and msb() return the least/most significant bit in a non-zero bitboard
+
+#if defined(__GNUC__) // GCC, Clang, ICC
+
+inline Square lsb(Bitboard b)
+{
+    assert(b);
+    return Square(__builtin_ctzll(b));
+}
+
+inline Square msb(Bitboard b)
+{
+    assert(b);
+    return Square(63 ^ __builtin_clzll(b));
+}
+
+#elif defined(_MSC_VER) // MSVC
+
+#ifdef _WIN64 // MSVC, WIN64
+
+inline Square lsb(Bitboard b)
+{
+    assert(b);
+    unsigned long idx;
+    _BitScanForward64(&idx, b);
+    return (Square)idx;
+}
+
+inline Square msb(Bitboard b)
+{
+    assert(b);
+    unsigned long idx;
+    _BitScanReverse64(&idx, b);
+    return (Square)idx;
+}
+
+#else // MSVC, WIN32
+
+inline Square lsb(Bitboard b)
+{
+    assert(b);
+    unsigned long idx;
+
+    if (b & 0xffffffff) {
+        _BitScanForward(&idx, int32_t(b));
+        return Square(idx);
+    } else {
+        _BitScanForward(&idx, int32_t(b >> 32));
+        return Square(idx + 32);
+    }
+}
+
+inline Square msb(Bitboard b)
+{
+    assert(b);
+    unsigned long idx;
+
+    if (b >> 32) {
+        _BitScanReverse(&idx, int32_t(b >> 32));
+        return Square(idx + 32);
+    } else {
+        _BitScanReverse(&idx, int32_t(b));
+        return Square(idx);
+    }
+}
+
+#endif
+
+#else // Compiler is neither GCC nor MSVC compatible
+
+#error "Compiler not supported."
+
+#endif
+
+/// least_significant_square_bb() returns the bitboard of the least significant
+/// square of a non-zero bitboard. It is equivalent to square_bb(lsb(bb)).
+
+inline Bitboard least_significant_square_bb(Bitboard b)
+{
+    assert(b);
+    return b & -b;
+}
+
 /// pop_lsb() finds and clears the least significant bit in a non-zero bitboard
 
-inline Square pop_lsb(Bitboard& b) {
-  assert(b);
-  const Square s = lsb(b);
-  b &= b - 1;
-  return s;
+inline Square pop_lsb(Bitboard& b)
+{
+    assert(b);
+    const Square s = lsb(b);
+    b &= b - 1;
+    return s;
+}
+
+/// frontmost_sq() returns the most advanced square for the given color,
+/// requires a non-zero bitboard.
+inline Square frontmost_sq(Color c, Bitboard b)
+{
+    assert(b);
+    return c == WHITE ? msb(b) : lsb(b);
 }
 
 #endif // #ifndef BITBOARD_H_INCLUDED

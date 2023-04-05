@@ -27,154 +27,151 @@ namespace Stockfish {
 
 namespace {
 
- /// generate<MOVE> generates all moves.
-/// Returns a pointer to the end of the move moves.
-template<GenType Type>
-ExtMove *generate<MOVE>(Position &pos, ExtMove *moveList)
-{
-    ExtMove *cur = moveList;
+    /// generate<MOVE> generates all moves.
+    /// Returns a pointer to the end of the move moves.
+    template <GenType Type>
+    ExtMove* generate<MOVE>(Position& pos, ExtMove* moveList)
+    {
+        ExtMove* cur = moveList;
 
-    // move piece that location weak first
-    for (auto i = SQUARE_NB - 1; i >= 0; i--) {
-        const Square from = MoveList<LEGAL>::movePriorityList[i];
-
-        if (!pos.select_piece(from)) {
-            continue;
-        }
-
-        if (rule.mayFly && pos.piece_on_board_count(pos.side_to_move()) <=
-                               rule.flyPieceCount) {
-            // piece count < 3 or 4 and allow fly, if is empty point, that's ok,
-            // do not need in move list
-            for (Square to = SQ_BEGIN; to < SQ_END; ++to) {
-                if (!pos.get_board()[to]) {
-                    *cur++ = make_move(from, to);
-                }
-            }
-        } else {
-            for (auto direction = MD_BEGIN; direction < MD_NB; ++direction) {
-                const Square to =
-                    MoveList<LEGAL>::adjacentSquares[from][direction];
-                if (to && !pos.get_board()[to]) {
-                    *cur++ = make_move(from, to);
-                }
-            }
-        }
-    }
-
-    return cur;
-}
-
-/// generate<PLACE> generates all places.
-/// Returns a pointer to the end of the move list.
-template<GenType Type>
-ExtMove *generate<PLACE>(Position &pos, ExtMove *moveList)
-{
-    ExtMove *cur = moveList;
-
-    for (auto s : MoveList<LEGAL>::movePriorityList) {
-        if (!pos.get_board()[s]) {
-            *cur++ = static_cast<Move>(s);
-        }
-    }
-
-    return cur;
-}
-
-/// generate<REMOVE> generates all removes.
-/// Returns a pointer to the end of the move moves.
-template<GenType Type>
-ExtMove *generate<REMOVE>(Position &pos, ExtMove *moveList)
-{
-    const Color us = pos.side_to_move();
-    const Color them = ~us;
-
-    ExtMove *cur = moveList;
-
-     if (pos.is_stalemate_removal()) {
+        // move piece that location weak first
         for (auto i = SQUARE_NB - 1; i >= 0; i--) {
-            Square s = MoveList<LEGAL>::movePriorityList[i];
+            const Square from = MoveList<LEGAL>::movePriorityList[i];
+
+            if (!pos.select_piece(from)) {
+                continue;
+            }
+
+            if (rule.mayFly && pos.piece_on_board_count(pos.side_to_move()) <= rule.flyPieceCount) {
+                // piece count < 3 or 4 and allow fly, if is empty point, that's ok,
+                // do not need in move list
+                for (Square to = SQ_BEGIN; to < SQ_END; ++to) {
+                    if (!pos.get_board()[to]) {
+                        *cur++ = make_move(from, to);
+                    }
+                }
+            } else {
+                for (auto direction = MD_BEGIN; direction < MD_NB; ++direction) {
+                    const Square to = MoveList<LEGAL>::adjacentSquares[from][direction];
+                    if (to && !pos.get_board()[to]) {
+                        *cur++ = make_move(from, to);
+                    }
+                }
+            }
+        }
+
+        return cur;
+    }
+
+    /// generate<PLACE> generates all places.
+    /// Returns a pointer to the end of the move list.
+    template <GenType Type>
+    ExtMove* generate<PLACE>(Position& pos, ExtMove* moveList)
+    {
+        ExtMove* cur = moveList;
+
+        for (auto s : MoveList<LEGAL>::movePriorityList) {
+            if (!pos.get_board()[s]) {
+                *cur++ = static_cast<Move>(s);
+            }
+        }
+
+        return cur;
+    }
+
+    /// generate<REMOVE> generates all removes.
+    /// Returns a pointer to the end of the move moves.
+    template <GenType Type>
+    ExtMove* generate<REMOVE>(Position& pos, ExtMove* moveList)
+    {
+        const Color us = pos.side_to_move();
+        const Color them = ~us;
+
+        ExtMove* cur = moveList;
+
+        if (pos.is_stalemate_removal()) {
+            for (auto i = SQUARE_NB - 1; i >= 0; i--) {
+                Square s = MoveList<LEGAL>::movePriorityList[i];
+                if (pos.get_board()[s] & make_piece(them)) {
+                    if (pos.is_adjacent_to(s, us) == true) {
+                        *cur++ = static_cast<Move>(-s);
+                    }
+                }
+            }
+
+            return cur;
+        }
+
+        if (pos.is_all_in_mills(them)) {
+#ifndef MADWEASEL_MUEHLE_RULE
+            for (auto i = SQUARE_NB - 1; i >= 0; i--) {
+                Square s = MoveList<LEGAL>::movePriorityList[i];
+                if (pos.get_board()[s] & make_piece(them)) {
+                    *cur++ = static_cast<Move>(-s);
+                }
+            }
+#endif
+            return cur;
+        }
+
+        // not is all in mills
+        for (auto i = SQUARE_NB - 1; i >= 0; i--) {
+            const Square s = MoveList<LEGAL>::movePriorityList[i];
             if (pos.get_board()[s] & make_piece(them)) {
-                if (pos.is_adjacent_to(s, us) == true) {
+                if (rule.mayRemoveFromMillsAlways || !pos.potential_mills_count(s, NOBODY)) {
                     *cur++ = static_cast<Move>(-s);
                 }
             }
         }
-    
-        return cur;
-    } 
 
-    if (pos.is_all_in_mills(them)) {
-#ifndef MADWEASEL_MUEHLE_RULE
-        for (auto i = SQUARE_NB - 1; i >= 0; i--) {
-            Square s = MoveList<LEGAL>::movePriorityList[i];
-            if (pos.get_board()[s] & make_piece(them)) {
-                *cur++ = static_cast<Move>(-s);
-            }
-        }
-#endif
         return cur;
     }
 
-    // not is all in mills
-    for (auto i = SQUARE_NB - 1; i >= 0; i--) {
-        const Square s = MoveList<LEGAL>::movePriorityList[i];
-        if (pos.get_board()[s] & make_piece(them)) {
-            if (rule.mayRemoveFromMillsAlways ||
-                !pos.potential_mills_count(s, NOBODY)) {
-                *cur++ = static_cast<Move>(-s);
+    /// generate<LEGAL> generates all the legal moves in the given position
+
+    template <GenType Type>
+    ExtMove* generate<LEGAL>(Position& pos, ExtMove* moveList)
+    {
+        ExtMove* cur = moveList;
+
+        switch (pos.get_action()) {
+        case Action::select:
+        case Action::place:
+            if (pos.get_phase() == Phase::placing || pos.get_phase() == Phase::ready) {
+                return generate<PLACE>(pos, moveList);
             }
-        }
-    }
 
-    return cur;
-}
+            if (pos.get_phase() == Phase::moving) {
+                return generate<MOVE>(pos, moveList);
+            }
 
-/// generate<LEGAL> generates all the legal moves in the given position
+            break;
 
-template<GenType Type>
-ExtMove *generate<LEGAL>(Position &pos, ExtMove *moveList)
-{
-    ExtMove *cur = moveList;
+        case Action::remove:
+            return generate<REMOVE>(pos, moveList);
 
-    switch (pos.get_action()) {
-    case Action::select:
-    case Action::place:
-        if (pos.get_phase() == Phase::placing ||
-            pos.get_phase() == Phase::ready) {
-            return generate<PLACE>(pos, moveList);
-        }
-
-        if (pos.get_phase() == Phase::moving) {
-            return generate<MOVE>(pos, moveList);
-        }
-
-        break;
-
-    case Action::remove:
-        return generate<REMOVE>(pos, moveList);
-
-    case Action::none:
+        case Action::none:
 #ifdef FLUTTER_UI
-        LOGD("generate(): action = %hu\n", pos.get_action());
+            LOGD("generate(): action = %hu\n", pos.get_action());
 #endif
-        assert(0);
-        break;
+            assert(0);
+            break;
+        }
+
+        return cur;
     }
 
-    return cur;
-}
+    template <GenType Type>
+    void MoveList<LEGAL>::create()
+    {
+        Mills::adjacent_squares_init();
+    }
 
-template<GenType Type>
-void MoveList<LEGAL>::create()
-{
-    Mills::adjacent_squares_init();
-}
-
-template<GenType Type>
-void MoveList<LEGAL>::shuffle()
-{
-    Mills::move_priority_list_shuffle();
+    template <GenType Type>
+    void MoveList<LEGAL>::shuffle()
+    {
+        Mills::move_priority_list_shuffle();
+    }
 }
 
 } // namespace Stockfish

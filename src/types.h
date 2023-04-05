@@ -164,6 +164,13 @@ enum class GameOverReason {
     drawNoWay,
 };
 
+enum ScaleFactor {
+    SCALE_FACTOR_DRAW = 0,
+    SCALE_FACTOR_NORMAL = 64,
+    SCALE_FACTOR_MAX = 128,
+    SCALE_FACTOR_NONE = 255
+};
+
 enum Bound : uint8_t {
     BOUND_NONE,
     BOUND_UPPER,
@@ -177,6 +184,7 @@ enum Value : int8_t {
 #ifdef ENDGAME_LEARNING
     VALUE_KNOWN_WIN = 25,
 #endif
+    VALUE_KNOWN_WIN = 25,
     VALUE_MATE = 80,
     VALUE_UNIQUE = 100,
     VALUE_INFINITE = 125,
@@ -187,7 +195,7 @@ enum Value : int8_t {
     VALUE_TB_LOSS_IN_MAX_PLY = -VALUE_TB_WIN_IN_MAX_PLY,
     VALUE_MATE_IN_MAX_PLY = VALUE_MATE - MAX_PLY,
     VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
-
+    PieceValue = 5,
     VALUE_EACH_PIECE = PieceValue,
     VALUE_EACH_PIECE_INHAND = VALUE_EACH_PIECE,
     VALUE_EACH_PIECE_ONBOARD = VALUE_EACH_PIECE,
@@ -202,9 +210,6 @@ enum Value : int8_t {
                             VALUE_EACH_PIECE_INHAND) +
                            1,
     VALUE_MOVING_WINDOW = VALUE_EACH_PIECE_MOVING_NEEDREMOVE + 1,
-};
-
-constexpr Value PieceValue = 5;
 };
 
 enum Rating : int8_t {
@@ -395,6 +400,28 @@ enum Rank : int {
     RANK_NB = 8
 };
 
+// Keep track of what a move changes on the board (used by NNUE)
+struct DirtyPiece {
+
+    // Number of changed pieces
+    int dirty_num;
+
+    // Max 3 pieces can change in one move. A promotion with capture moves
+    // both the pawn and the captured piece to SQ_NONE and the piece promoted
+    // to from SQ_NONE to the capture square.
+    Piece piece[3];
+
+    // From and to squares, which may be SQ_NONE
+    Square from[3];
+    Square to[3];
+};
+
+/// Score enum stores a middlegame and an endgame value in a single integer (enum).
+/// The least significant 16 bits are used to store the middlegame value and the
+/// upper 16 bits are used to store the endgame value. We have to take care to
+/// avoid left-shifting a signed int to avoid undefined behavior.
+enum Score : int { SCORE_ZERO };
+
 #define ENABLE_BASE_OPERATORS_ON(T) \
     constexpr T operator+(T d1, int d2) { return T(int(d1) + d2); } \
     constexpr T operator-(T d1, int d2) { return T(int(d1) - d2); } \
@@ -431,6 +458,16 @@ ENABLE_INCR_OPERATORS_ON(MoveDirection)
 constexpr Color operator~(Color c)
 {
     return static_cast<Color>(c ^ 3); // Toggle color
+}
+
+constexpr Value mate_in(int ply)
+{
+    return VALUE_MATE - ply;
+}
+
+constexpr Value mated_in(int ply)
+{
+    return -VALUE_MATE + ply;
 }
 
 constexpr Square make_square(File f, Rank r)

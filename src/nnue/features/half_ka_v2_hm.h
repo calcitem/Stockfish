@@ -64,7 +64,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
     // Index of a feature for a given king position and another piece on some square
     template<Color Perspective>
-    static IndexType make_index(Square s, Piece pc, Square ksq);
+    static IndexType make_index(Square s, Piece pc);
 
    public:
     // Feature name
@@ -77,45 +77,16 @@ namespace Stockfish::Eval::NNUE::Features {
     static constexpr IndexType Dimensions =
         static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB) / 2;    // TODO: Sanmill
     // TODO: Sanmill
-#define B(v) (v * PS_NB)
-    static constexpr int KingBuckets[COLOR_NB][SQUARE_NB] = {
-      { B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
-        B(24), B(25), B(26), B(27), B(27), B(26), B(25), B(24),
-        B(20), B(21), B(22), B(23), B(23), B(22), B(21), B(20),
-        B(16), B(17), B(18), B(19), B(19), B(18), B(17), B(16),
-        B(12), B(13), B(14), B(15), B(15), B(14), B(13), B(12),
-        B( 8), B( 9), B(10), B(11), B(11), B(10), B( 9), B( 8),
-        B( 4), B( 5), B( 6), B( 7), B( 7), B( 6), B( 5), B( 4),
-        B( 0), B( 1), B( 2), B( 3), B( 3), B( 2), B( 1), B( 0) },
-      { B( 0), B( 1), B( 2), B( 3), B( 3), B( 2), B( 1), B( 0),
-        B( 4), B( 5), B( 6), B( 7), B( 7), B( 6), B( 5), B( 4),
-        B( 8), B( 9), B(10), B(11), B(11), B(10), B( 9), B( 8),
-        B(12), B(13), B(14), B(15), B(15), B(14), B(13), B(12),
-        B(16), B(17), B(18), B(19), B(19), B(18), B(17), B(16),
-        B(20), B(21), B(22), B(23), B(23), B(22), B(21), B(20),
-        B(24), B(25), B(26), B(27), B(27), B(26), B(25), B(24),
-        B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28) }
-    };
-#undef B
-    // TODO: Sanmill
     // Orient a square according to perspective (rotates by 180 for black)
     static constexpr int OrientTBL[COLOR_NB][SQUARE_NB] = {
-      { SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
-        SQ_H1, SQ_H1, SQ_H1, SQ_H1, SQ_A1, SQ_A1, SQ_A1, SQ_A1 },
-      { SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
-        SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8 }
+        { SQ_C1, SQ_C1, SQ_C1, SQ_C1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
+        SQ_C1, SQ_C1, SQ_C1, SQ_C1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
+        SQ_C1, SQ_C1, SQ_C1, SQ_C1, SQ_A1, SQ_A1, SQ_A1, SQ_A1,
+        },
+      { SQ_C8, SQ_C8, SQ_C8, SQ_C8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
+        SQ_C8, SQ_C8, SQ_C8, SQ_C8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
+        SQ_C8, SQ_C8, SQ_C8, SQ_C8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
+         }
     };
 
     // Maximum number of simultaneously active features.
@@ -131,7 +102,6 @@ namespace Stockfish::Eval::NNUE::Features {
     // Get a list of indices for recently changed features
     template<Color Perspective>
     static void append_changed_indices(
-      Square ksq,
       const DirtyPiece& dp,
       IndexList& removed,
       IndexList& added

@@ -490,14 +490,14 @@ static void* aligned_large_pages_alloc_windows([[maybe_unused]] size_t allocSize
       return nullptr;
 
   // Dynamically link OpenProcessToken, LookupPrivilegeValue and AdjustTokenPrivileges
-  HMODULE k32 = GetModuleHandle("Advapi32.dll");
-  auto fun6 = (fun6_t)(void(*)())GetProcAddress(k32, "OpenProcessToken");
+  HMODULE k32 = GetModuleHandle((LPCWSTR) "Advapi32.dll");
+  auto fun6 = (fun6_t)(void (*)())GetProcAddress(k32, (LPCSTR) "OpenProcessToken");
   if (!fun6)
       return nullptr;
-  auto fun7 = (fun7_t)(void(*)())GetProcAddress(k32, "LookupPrivilegeValueA");
+  auto fun7 = (fun7_t)(void (*)())GetProcAddress(k32, (LPCSTR) "LookupPrivilegeValueA");
   if (!fun7)
       return nullptr;
-  auto fun8 = (fun8_t)(void(*)())GetProcAddress(k32, "AdjustTokenPrivileges");
+  auto fun8 = (fun8_t)(void (*)())GetProcAddress(k32, (LPCSTR) "AdjustTokenPrivileges");
   if (!fun8)
       return nullptr;
             
@@ -508,7 +508,7 @@ static void* aligned_large_pages_alloc_windows([[maybe_unused]] size_t allocSize
       return nullptr;
 
   // LookupPrivilegeValueA()
-  if (fun7(nullptr, SE_LOCK_MEMORY_NAME, &luid))
+  if (fun7(nullptr, (LPCSTR)SE_LOCK_MEMORY_NAME, &luid))
   {
       TOKEN_PRIVILEGES tp { };
       TOKEN_PRIVILEGES prevTp { };

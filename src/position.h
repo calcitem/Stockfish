@@ -98,15 +98,11 @@ public:
   // Properties of moves
   bool legal(Move m) const;
   bool pseudo_legal(const Move m) const;
-  bool capture(Move m) const;
-  bool capture_stage(Move m) const;
-  bool gives_check(Move m) const;
   Piece moved_piece(Move m) const;
   Piece captured_piece() const;
 
   // Doing and undoing moves
   void do_move(Move m, StateInfo& newSt);
-  void do_move(Move m, StateInfo& newSt, bool givesCheck);
   void undo_move(Move m);
   void do_null_move(StateInfo& newSt);
   void undo_null_move();
@@ -143,7 +139,6 @@ public:
 private:
   // Initialization helpers (used while setting up a position)
   void set_state() const;
-  void set_check_info() const;
 
   // Other helpers
   void move_piece(Square from, Square to);
@@ -233,14 +228,8 @@ private:
 
     // Other helpers
     bool select_piece(Square s);
-    bool select_piece(File f, Rank r);
 
-    void put_piece(Piece pc, Square s);
-    bool put_piece(File f, Rank r);
-    bool put_piece(Square s, bool updateRecord = false);
-
-	bool remove_piece(File f, Rank r);
-	bool move_piece(File f1, Rank r1, File f2, Rank r2);
+    bool put_piece(Square s);
 
 	 int total_mills_count(Color c);
     bool is_board_full_removal_at_placing_phase_end();
@@ -354,19 +343,6 @@ inline int Position::rule50_count() const {
   return st->rule50;
 }
 
-inline bool Position::capture(Move m) const {
-  assert(is_ok(m));
-  return     (!empty(to_sq(m)))    // TODO: Sanmill
-}
-
-// returns true if a move is generated from the capture stage
-// having also queen promotions covered, i.e. consistency with the capture stage move generation
-// is needed to avoid the generation of duplicate moves.
-inline bool Position::capture_stage(Move m) const {
-  assert(is_ok(m));
-  return  capture(m);
-}
-
 inline Piece Position::captured_piece() const {
   return st->capturedPiece;
 }
@@ -407,7 +383,7 @@ inline void Position::move_piece(Square from, Square to) {
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt) {
-  do_move(m, newSt, gives_check(m));
+  do_move(m, newSt);
 }
 
 inline StateInfo* Position::state() const {
@@ -416,25 +392,6 @@ inline StateInfo* Position::state() const {
 }
 
 // Mill
-
-inline bool Position::put_piece(File f, Rank r)
-{
-    const bool ret = put_piece(make_square(f, r), true);
-
-    return ret;
-}
-
-inline bool Position::move_piece(File f1, Rank r1, File f2, Rank r2)
-{
-    return move_piece(make_square(f1, r1), make_square(f2, r2));
-}
-
-inline bool Position::remove_piece(File f, Rank r)
-{
-    const bool ret = remove_piece(make_square(f, r), true);
-
-    return ret;
-}
 
 inline Piece *Position::get_board() noexcept
 {

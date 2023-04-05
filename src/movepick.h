@@ -119,16 +119,12 @@ class MovePicker {
 public:
   MovePicker(const MovePicker&) = delete;
   MovePicker& operator=(const MovePicker&) = delete;
-  MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
-                                           const CapturePieceToHistory*,
-                                           const PieceToHistory**,
+  MovePicker(const Position&, Move, Depth,
                                            Move,
                                            const Move*);
-  MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
-                                           const CapturePieceToHistory*,
-                                           const PieceToHistory**,
+  MovePicker(const Position&, Move, Depth,
                                            Square);
-  MovePicker(const Position&, Move, Value, const CapturePieceToHistory*);
+  MovePicker(const Position&, Move, Value);
   Move next_move(bool skipQuiets = false);
 
   Bitboard threatenedPieces;
@@ -140,9 +136,6 @@ private:
   ExtMove* end() { return endMoves; }
 
   const Position& pos;
-  const ButterflyHistory* mainHistory;
-  const CapturePieceToHistory* captureHistory;
-  const PieceToHistory** continuationHistory;
   Move ttMove;
   ExtMove refutations[3], *cur, *endMoves, *endBadCaptures;
   int stage;

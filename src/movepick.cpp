@@ -57,43 +57,36 @@ namespace {
 /// ordering is at the current node.
 
 /// MovePicker constructor for the main search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                                                             const CapturePieceToHistory* cph,
-                                                             const PieceToHistory** ch,
+MovePicker::MovePicker(const Position& p, Move ttm, Depth d,
                                                              Move cm,
                                                              const Move* killers)
-           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch),
+           : pos(p),
              ttMove(ttm), refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d)
 {
   assert(d > 0);
 
-  stage = (pos.checkers() ? EVASION_TT : MAIN_TT) +
+  stage = (MAIN_TT) +
           !(ttm && pos.pseudo_legal(ttm));
   threatenedPieces = 0;
 }
 
 /// MovePicker constructor for quiescence search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                                                             const CapturePieceToHistory* cph,
-                                                             const PieceToHistory** ch,
+MovePicker::MovePicker(const Position& p, Move ttm, Depth d,
                                                              Square rs)
-           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), ttMove(ttm), recaptureSquare(rs), depth(d)
+           : pos(p), ttMove(ttm), recaptureSquare(rs), depth(d)
 {
   assert(d <= 0);
 
-  stage = (pos.checkers() ? EVASION_TT : QSEARCH_TT) +
+  stage = (QSEARCH_TT) +
           !(   ttm
             && pos.pseudo_legal(ttm));
 }
 
 /// MovePicker constructor for ProbCut: we generate captures with SEE greater
 /// than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph)
-           : pos(p), captureHistory(cph), ttMove(ttm), threshold(th)
+MovePicker::MovePicker(const Position& p, Move ttm, Value th, ttMove(ttm), threshold(th)
 {
-  assert(!pos.checkers());
-
-  stage = PROBCUT_TT + !(ttm && pos.capture_stage(ttm)
+   stage = PROBCUT_TT + !(ttm 
                              && pos.pseudo_legal(ttm)
                              && pos.see_ge(ttm, threshold));
 }

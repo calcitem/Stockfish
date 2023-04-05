@@ -295,14 +295,14 @@ namespace Stockfish::Eval::NNUE {
     Value base = evaluate(pos);
     base = pos.side_to_move() == WHITE ? base : -base;
 
-    for (File f = FILE_A; f <= FILE_H; ++f)    // TODO: Sanmill
-      for (Rank r = RANK_1; r <= RANK_8; ++r)    // TODO: Sanmill
+    for (File f = FILE_A; f <= FILE_C; ++f)
+      for (Rank r = RANK_1; r <= RANK_8; ++r)
       {
         Square sq = make_square(f, r);
         Piece pc = pos.piece_on(sq);
         Value v = VALUE_NONE;
 
-        if (pc != NO_PIECE && type_of(pc) != KING)
+        if (pc != NO_PIECE)
         {
           auto st = pos.state();
 
