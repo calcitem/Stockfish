@@ -121,7 +121,7 @@ public:
   int game_ply() const;
   Thread* this_thread() const;
   bool is_draw(int ply) const;
-  bool has_game_cycle(int ply) const;
+  bool has_game_cycle() const;
   bool has_repeated() const;
   int rule50_count() const;
   Value material_sum() const;    // TODO: Sanmill

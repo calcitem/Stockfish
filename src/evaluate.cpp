@@ -165,15 +165,6 @@ namespace Trace {
 
   static double to_cp(Value v) { return double(v) / UCI::NormalizeToPawnValue; }
 
-  static void add(int idx, Color c, Score s) {
-    scores[idx][c] = s;
-  }
-
-  static void add(int idx, Score w, Score b = SCORE_ZERO) {
-    scores[idx][WHITE] = w;
-    scores[idx][BLACK] = b;
-  }
-
   static std::ostream& operator<<(std::ostream& os, Score s) {
     os << " "; // TODO: Sanmill
     return os;

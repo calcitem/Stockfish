@@ -132,12 +132,8 @@ private:
   ExtMove* end() { return endMoves; }
 
   Position& pos;
-  Move ttMove;
-  ExtMove refutations[3], *cur, *endMoves, *endBadCaptures;
+  ExtMove *cur, *endMoves;
   int stage;
-  Square recaptureSquare;
-  Value threshold;
-  Depth depth;
   ExtMove moves[MAX_MOVES];
 };
 

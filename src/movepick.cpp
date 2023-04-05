@@ -60,8 +60,7 @@ namespace {
 MovePicker::MovePicker(Position& p, Move ttm, Depth d,
                                                              Move cm,
                                                              const Move* killers)
-           : pos(p),
-             ttMove(ttm), refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d)
+           : pos(p)
 {
   assert(d > 0);
 
@@ -72,8 +71,8 @@ MovePicker::MovePicker(Position& p, Move ttm, Depth d,
 
 /// MovePicker constructor for quiescence search
 MovePicker::MovePicker(Position& p, Move ttm, Depth d,
-                                                             Square rs)
-           : pos(p), ttMove(ttm), recaptureSquare(rs), depth(d)
+    Square rs)
+    : pos(p)
 {
   assert(d <= 0);
 

@@ -48,8 +48,6 @@ struct Entry {
 
 using Table = HashTable<Entry, 8192>;
 
-Entry* probe(const Position& pos);
-
 } // namespace Stockfish::Material
 
 #endif // #ifndef MATERIAL_H_INCLUDED

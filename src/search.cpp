@@ -51,11 +51,6 @@ namespace {
   // Different node types, used as a template parameter
   enum NodeType { NonPV, PV, Root };
 
-  // Futility margin
-  Value futility_margin(Depth d, bool improving) {
-    return Value(154 * (d - improving));
-  }
-
   // Reductions lookup table, initialized at startup
   int Reductions[MAX_MOVES]; // [depth or moveNumber]
 
@@ -111,8 +106,6 @@ namespace {
   Value value_from_tt(Value v, int ply, int r50c);
   void update_pv(Move* pv, Move move, const Move* childPv);
   void update_quiet_stats(const Position& pos, Stack* ss, Move move, int bonus);
-  void update_all_stats(const Position& pos, Stack* ss, Move bestMove, Value bestValue, Value beta, Square prevSq,
-                        Move* quietsSearched, int quietCount, int captureCount, Depth depth);
 
   // perft() is our utility to verify move generation. All the leaf nodes up
   // to the given depth are generated and counted, and the sum is returned.
@@ -510,7 +503,7 @@ namespace {
     if (   !rootNode
         && pos.rule50_count() >= 3
         && alpha < VALUE_DRAW
-        && pos.has_game_cycle(ss->ply))
+        && pos.has_game_cycle())
     {
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
@@ -534,10 +527,9 @@ namespace {
     Key posKey;
     Move ttMove, move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, ttValue, eval, maxValue, probCutBeta;
+    Value bestValue, value, ttValue, eval, maxValue;
     bool improving;
     bool moveCountPruning;
-    Piece movedPiece;
     int moveCount, captureCount, quietCount, improvement;
     Color before, after;
 
@@ -615,11 +607,6 @@ namespace {
             {
                 // Bonus for a quiet ttMove that fails high (~2 Elo)                
                 update_quiet_stats(pos, ss, ttMove, stat_bonus(depth));
-            }
-            // Penalty for a quiet ttMove that fails low (~1 Elo)
-            else
-            {
-                int penalty = -stat_bonus(depth);
             }
         }
 
@@ -733,8 +720,6 @@ namespace {
         }
     }
 
-    probCutBeta = beta + 186 - 54 * improving;
-
     // Step 11. If the position is not in TT, decrease depth by 2 (or by 4 if the TT entry for the current position was hit and the stored depth is greater than or equal to the current depth).
     // Use qsearch if depth is equal or below zero (~9 Elo)
     if (    PvNode
@@ -756,7 +741,6 @@ namespace {
                                       ss->killers);
 
     value = bestValue;
-    moveCountPruning = false;
 
     // Indicate PvNodes that will probably fail low if the node was searched
     // at a depth equal or greater than the current depth, and the result of this search was a fail low.
@@ -767,7 +751,7 @@ namespace {
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
-    while ((move = mp.next_move(moveCountPruning)) != MOVE_NONE)
+    while ((move = mp.next_move()) != MOVE_NONE)
     {
       assert(is_ok(move));
 
@@ -796,7 +780,6 @@ namespace {
           (ss+1)->pv = nullptr;
 
       extension = 0;
-      movedPiece = pos.moved_piece(move);
 
       // Calculate new depth for this move
       newDepth = depth - 1;
@@ -979,9 +962,6 @@ namespace {
                       value = search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
                   }
               }
-
-              int bonus = value > alpha ?  stat_bonus(newDepth)
-                                        : -stat_bonus(newDepth);
           }
       }
 
@@ -1186,7 +1166,6 @@ namespace {
         ss->pv[0] = MOVE_NONE;
     }
 
-    Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
     moveCount = 0;
 
@@ -1417,27 +1396,6 @@ namespace {
     *pv = MOVE_NONE;
   }
 
-
-  // update_all_stats() updates stats at the end of search() when a bestMove is found
-
-  void update_all_stats(const Position& pos, Stack* ss, Move bestMove, Value bestValue, Value beta, Square prevSq,
-                        Move* quietsSearched, int quietCount, int captureCount, Depth depth) {
-
-    Color us = pos.side_to_move();
-    Thread* thisThread = pos.this_thread();
-
-    int bonus1 = stat_bonus(depth + 1);
-
-    
-    {
-        int bonus2 = bestValue > beta + 153 ? bonus1               // larger bonus
-                                            : stat_bonus(depth);   // smaller bonus
-
-        // Increase stats for the best move in case it was a quiet move
-        update_quiet_stats(pos, ss, bestMove, bonus2);
-    }
-  }
-
   // update_quiet_stats() updates move sorting heuristics
 
   void update_quiet_stats(const Position& pos, Stack* ss, Move move, int bonus) {
@@ -1449,7 +1407,6 @@ namespace {
         ss->killers[0] = move;
     }
 
-    Color us = pos.side_to_move();
     Thread* thisThread = pos.this_thread();
 
     // Update countermove history

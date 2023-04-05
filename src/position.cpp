@@ -468,7 +468,6 @@ bool Position::legal(Move m) const {
 bool Position::pseudo_legal(const Move m) const {
     // TODO: Sanmill
   Color us = sideToMove;
-  Square from = from_sq(m);
   Square to = to_sq(m);
   Piece pc = moved_piece(m);
 
@@ -520,7 +519,6 @@ void Position::do_move(Move m, StateInfo& newSt) {
   Color them = ~us;
   Square from = from_sq(m);
   Square to = to_sq(m);
-  Piece pc = piece_on(from);
 
   Piece captured = NO_PIECE;
   Square capsq = to;
@@ -592,11 +590,8 @@ void Position::undo_move(Move m)
 
   sideToMove = st->previous->sideToMove;
 
-  Color us = sideToMove;
-  Color them = ~us;
   Square from = from_sq(m);
   Square to = to_sq(m);
-  Piece pc = piece_on(to);
 
   const MoveType mt = type_of(m);
 
@@ -702,8 +697,6 @@ bool Position::see_ge(Move m, Bitboard& occupied, Value threshold) const {
 
   assert(color_of(piece_on(from)) == sideToMove);
   occupied = pieces() ^ from ^ to; // xoring to is important for pinned piece logic
-  Color stm = sideToMove;
-  Bitboard stmAttackers, bb;
   int res = 1;
 
   // TODO: Sanmill
@@ -752,16 +745,13 @@ bool Position::has_repeated() const {
 /// Position::has_game_cycle() tests if the position has a move which draws by repetition,
 /// or an earlier position has a move that directly reaches the current position.
 
-bool Position::has_game_cycle(int ply) const {
-
-  int j;
+bool Position::has_game_cycle() const {
 
   int end = std::min(st->rule50, st->pliesFromNull);
 
   if (end < 3)
     return false;
 
-  Key originalKey = st->key;
   StateInfo* stp = st->previous;
 
   for (int i = 3; i <= end; i += 2)
