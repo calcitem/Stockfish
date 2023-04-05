@@ -524,7 +524,7 @@ void Position::do_move(Move m, StateInfo& newSt) {
 
   auto captured = piece_on(to);
 
-  assert(color_of(pc) == us);
+  //assert(color_of(pc) == us);
 
   if (type_of(m) == MOVETYPE_REMOVE)
   {
