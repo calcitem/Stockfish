@@ -557,6 +557,7 @@ void Position::do_move(Move m, StateInfo& newSt) {
   //st->key = k;
 
   //sideToMove = ~sideToMove;
+  st->sideToMove = sideToMove;  // TODO: Sanmill
 
   // Calculate the repetition info. It is the ply distance from the previous
   // occurrence of the same position, negative in the 3-fold case, or zero

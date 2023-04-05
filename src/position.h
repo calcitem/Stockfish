@@ -44,6 +44,7 @@ struct StateInfo {
  Value   material[COLOR_NB];
   int    rule50;
   int    pliesFromNull;
+  Color sideToMove; // TODO: Sanmill
 
   // Not copied when making a move (will be recomputed anyhow)
   Key        key;
