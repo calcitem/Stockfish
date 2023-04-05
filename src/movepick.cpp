@@ -104,51 +104,110 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePiece
 template<GenType Type>
 void MovePicker::score() {
 
-  static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
+    cur = moves;
 
-  [[maybe_unused]] Bitboard threatenedByPawn, threatenedByMinor, threatenedByRook;
-  if constexpr (Type == QUIETS)
-  {
-      Color us = pos.side_to_move();
+    int theirMillsCount;
+    int ourPieceCount = 0;
+    int theirPiecesCount = 0;
+    int bannedCount = 0;
+    int emptyCount = 0;
 
-      threatenedByPawn  = pos.attacks_by<PAWN>(~us);    // TODO: Sanmill
-      threatenedByMinor = pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;    // TODO: Sanmill
-      threatenedByRook  = pos.attacks_by<ROOK>(~us) | threatenedByMinor;    // TODO: Sanmill
+    while (cur++->move != MOVE_NONE) {
+        Move m = cur->move;
 
-      // Pieces threatened by pieces of lesser material value
-      threatenedPieces = (pos.pieces(us, QUEEN) & threatenedByRook)    // TODO: Sanmill
-                       | (pos.pieces(us, ROOK)  & threatenedByMinor)    // TODO: Sanmill
-                       | (pos.pieces(us, KNIGHT, BISHOP) & threatenedByPawn);    // TODO: Sanmill
-  }
+        const Square to = to_sq(m);
+        const Square from = from_sq(m);
 
-  for (auto& m : *this)
-      if constexpr (Type == CAPTURES)
-          m.value =  (7 * int(PieceValue[MG][pos.piece_on(to_sq(m))])
-                   +     (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))]) / 16;
+        // if stat before moving, moving phrase maybe from @-0-@ to 0-@-@, but
+        // no mill, so need |from| to judge
+        const int ourMillsCount = pos.potential_mills_count(
+            to, pos.side_to_move(), from);
 
-      else if constexpr (Type == QUIETS)
-          m.value =  2 * (*mainHistory)[pos.side_to_move()][from_to(m)]
-                   + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[1])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)]
-                   +     (threatenedPieces & from_sq(m) ?
-                           (type_of(pos.moved_piece(m)) == QUEEN && !(to_sq(m) & threatenedByRook)  ? 50000    // TODO: Sanmill
-                          : type_of(pos.moved_piece(m)) == ROOK  && !(to_sq(m) & threatenedByMinor) ? 25000    // TODO: Sanmill
-                          :                                         !(to_sq(m) & threatenedByPawn)  ? 15000
-                          :                                                                           0)
-                          :                                                                           0)
-                   +     bool(pos.check_squares(type_of(pos.moved_piece(m))) & to_sq(m)) * 16384;
-      else // Type == EVASIONS
-      {
-          if (pos.capture_stage(m))
-              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
-                       - Value(type_of(pos.moved_piece(m)))    // TODO: Sanmill
-                       + (1 << 28);
-          else
-              m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
-                       + (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)];
-      }
+#ifndef SORT_MOVE_WITHOUT_HUMAN_KNOWLEDGE
+        // TODO(calcitem): rule.mayRemoveMultiple adapt other rules
+        if (type_of(m) != MOVETYPE_REMOVE) {
+            // all phrase, check if place sq can close mill
+            if (ourMillsCount > 0) {
+                cur->value += RATING_ONE_MILL * ourMillsCount;
+            } else if (pos.get_phase() == Phase::placing) {
+                // placing phrase, check if place sq can block their close mill
+                theirMillsCount = pos.potential_mills_count(
+                    to, ~pos.side_to_move());
+                cur->value += RATING_BLOCK_ONE_MILL * theirMillsCount;
+            } else if (pos.get_phase() == Phase::moving) {
+                // moving phrase, check if place sq can block their close mill
+                theirMillsCount = pos.potential_mills_count(
+                    to, ~pos.side_to_move());
+
+                if (theirMillsCount) {
+                    ourPieceCount = theirPiecesCount = bannedCount =
+                        emptyCount = 0;
+
+                    pos.surrounded_pieces_count(to, ourPieceCount,
+                                                theirPiecesCount, bannedCount,
+                                                emptyCount);
+
+                    if (to % 2 == 0 && theirPiecesCount == 3) {
+                        cur->value += RATING_BLOCK_ONE_MILL * theirMillsCount;
+                    } else if (to % 2 == 1 && theirPiecesCount == 2 &&
+                               rule.hasDiagonalLines) {
+                        cur->value += RATING_BLOCK_ONE_MILL * theirMillsCount;
+                    }
+                }
+            }
+
+            // cur->value += bannedCount;  // placing phrase, place nearby ban
+            // point
+
+            // If has Diagonal Lines, black 2nd move place star point is as
+            // important as close mill (TODO)
+            if (rule.hasDiagonalLines &&
+                pos.count<ON_BOARD>(BLACK) < 2 && // patch: only when black 2nd
+                // move
+                Position::is_star_square(static_cast<Square>(m))) {
+                cur->value += RATING_STAR_SQUARE;
+            }
+        } else {
+            // Remove
+            ourPieceCount = theirPiecesCount = bannedCount = emptyCount = 0;
+
+            pos.surrounded_pieces_count(to, ourPieceCount, theirPiecesCount,
+                                        bannedCount, emptyCount);
+
+            if (ourMillsCount > 0) {
+                // remove point is in our mill
+                // cur->value += RATING_REMOVE_ONE_MILL * ourMillsCount;
+
+                if (theirPiecesCount == 0) {
+                    // if remove point nearby has no their piece, preferred.
+                    cur->value += 1;
+                    if (ourPieceCount > 0) {
+                        // if remove point nearby our piece, preferred
+                        cur->value += ourPieceCount;
+                    }
+                }
+            }
+
+            // remove point is in their mill
+            theirMillsCount = pos.potential_mills_count(to,
+                                                        ~pos.side_to_move());
+            if (theirMillsCount) {
+                if (theirPiecesCount >= 2) {
+                    // if nearby their piece, prefer do not remove
+                    cur->value -= theirPiecesCount;
+
+                    if (ourPieceCount == 0) {
+                        // if nearby has no our piece, more prefer do not remove
+                        cur->value -= 1;
+                    }
+                }
+            }
+
+            // prefer remove piece that mobility is strong
+            cur->value += emptyCount;
+        }
+#endif // !SORT_MOVE_WITHOUT_HUMAN_KNOWLEDGE
+    }
 }
 
 /// MovePicker::select() returns the next move satisfying a predicate function.
@@ -174,123 +233,12 @@ Move MovePicker::select(Pred filter) {
 /// moves left, picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move(bool skipQuiets) {
 
-top:
-  switch (stage) {
+    endMoves = generate<LEGAL>(pos, moves);
 
-  case MAIN_TT:
-  case EVASION_TT:
-  case QSEARCH_TT:
-  case PROBCUT_TT:
-      ++stage;
-      return ttMove;
+    score<LEGAL>();
+    partial_insertion_sort(moves, endMoves, INT_MIN);
 
-  case CAPTURE_INIT:
-  case PROBCUT_INIT:
-  case QCAPTURE_INIT:
-      cur = endBadCaptures = moves;
-      endMoves = generate<CAPTURES>(pos, cur);
-
-      score<CAPTURES>();
-      partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
-      ++stage;
-      goto top;
-
-  case GOOD_CAPTURE:
-      if (select<Next>([&](){
-                       return pos.see_ge(*cur, Value(-cur->value)) ?
-                              // Move losing capture to endBadCaptures to be tried later
-                              true : (*endBadCaptures++ = *cur, false); }))
-          return *(cur - 1);
-
-      // Prepare the pointers to loop over the refutations array
-      cur = std::begin(refutations);
-      endMoves = std::end(refutations);
-
-      // If the countermove is the same as a killer, skip it
-      if (   refutations[0].move == refutations[2].move
-          || refutations[1].move == refutations[2].move)
-          --endMoves;
-
-      ++stage;
-      [[fallthrough]];
-
-  case REFUTATION:
-      if (select<Next>([&](){ return    *cur != MOVE_NONE
-                                    && !pos.capture_stage(*cur)
-                                    &&  pos.pseudo_legal(*cur); }))
-          return *(cur - 1);
-      ++stage;
-      [[fallthrough]];
-
-  case QUIET_INIT:
-      if (!skipQuiets)
-      {
-          cur = endBadCaptures;
-          endMoves = generate<QUIETS>(pos, cur);
-
-          score<QUIETS>();
-          partial_insertion_sort(cur, endMoves, -3000 * depth);
-      }
-
-      ++stage;
-      [[fallthrough]];
-
-  case QUIET:
-      if (   !skipQuiets
-          && select<Next>([&](){return   *cur != refutations[0].move
-                                      && *cur != refutations[1].move
-                                      && *cur != refutations[2].move;}))
-          return *(cur - 1);
-
-      // Prepare the pointers to loop over the bad captures
-      cur = moves;
-      endMoves = endBadCaptures;
-
-      ++stage;
-      [[fallthrough]];
-
-  case BAD_CAPTURE:
-      return select<Next>([](){ return true; });
-
-  case EVASION_INIT:
-      cur = moves;
-      endMoves = generate<EVASIONS>(pos, cur);
-
-      score<EVASIONS>();
-      ++stage;
-      [[fallthrough]];
-
-  case EVASION:
-      return select<Best>([](){ return true; });
-
-  case PROBCUT:
-      return select<Next>([&](){ return pos.see_ge(*cur, threshold); });
-
-  case QCAPTURE:
-      if (select<Next>([&](){ return   depth > DEPTH_QS_RECAPTURES
-                                    || to_sq(*cur) == recaptureSquare; }))
-          return *(cur - 1);
-
-      // If we did not find any move and we do not try checks, we have finished
-      if (depth != DEPTH_QS_CHECKS)
-          return MOVE_NONE;
-
-      ++stage;
-      [[fallthrough]];
-
-  case QCHECK_INIT:
-      cur = moves;
-      endMoves = generate<QUIET_CHECKS>(pos, cur);
-
-      ++stage;
-      [[fallthrough]];
-
-  case QCHECK:
-      return select<Next>([](){ return true; });
-  }
-
-  assert(false);
-  return MOVE_NONE; // Silence warning
+    return *moves;
 }
 
 } // namespace Stockfish
