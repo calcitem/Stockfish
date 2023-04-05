@@ -539,6 +539,7 @@ namespace {
     bool moveCountPruning;
     Piece movedPiece;
     int moveCount, captureCount, quietCount, improvement;
+    Color before, after;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -909,7 +910,9 @@ namespace {
       ss->currentMove = move;
 
       // Step 16. Make the move
+      before = pos.side_to_move();
       pos.do_move(move, st);
+      after = pos.side_to_move();
 
       // Decrease reduction if position is or has been on the PV
       // and node is not likely to fail low. (~3 Elo)
@@ -950,7 +953,11 @@ namespace {
           // beyond the first move depth. This may lead to hidden double extensions.
           Depth d = std::clamp(newDepth - r, 1, newDepth + 1);
 
-          value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
+          if (after != before) {
+              value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+          } else {
+              value = search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+          }
 
           // Do full depth search when reduced LMR search fails high
           if (value > alpha && d < newDepth)
@@ -965,8 +972,13 @@ namespace {
 
               newDepth += doDeeperSearch - doShallowerSearch + doEvenDeeperSearch;
 
-              if (newDepth > d)
-                  value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
+              if (newDepth > d) {
+                  if (after != before) {
+                      value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                  } else {
+                      value = search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                  }
+              }
 
               int bonus = value > alpha ?  stat_bonus(newDepth)
                                         : -stat_bonus(newDepth);
@@ -978,9 +990,13 @@ namespace {
       {
           // Increase reduction for cut nodes and not ttMove (~1 Elo)
           if (!ttMove && cutNode)
-              r += 2;
+              r += 2;          
 
-          value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth - (r > 4), !cutNode);
+          if (after != before) {
+              value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 4), !cutNode);
+          } else {
+              value = search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 4), !cutNode);
+          }
       }
 
       // For PV nodes only, do a full PV search on the first move or after a fail
@@ -989,9 +1005,13 @@ namespace {
       if (PvNode && (moveCount == 1 || (value > alpha && (rootNode || value < beta))))
       {
           (ss+1)->pv = pv;
-          (ss+1)->pv[0] = MOVE_NONE;
+          (ss+1)->pv[0] = MOVE_NONE;          
 
-          value = -search<PV>(pos, ss+1, -beta, -alpha, newDepth, false);
+          if (after != before) {
+              value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+          } else {
+              value = search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+          }
       }
 
       // Step 19. Undo move
@@ -1157,6 +1177,7 @@ namespace {
     Value bestValue, value, ttValue, futilityValue, futilityBase;
     bool pvHit;
     int moveCount;
+    Color before, after;
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1288,8 +1309,16 @@ namespace {
       ss->currentMove = move;
 
       // Step 7. Make and search the move
+      before = pos.side_to_move();
       pos.do_move(move, st);
-      value = -qsearch<nodeType>(pos, ss+1, -beta, -alpha, depth - 1);
+      after = pos.side_to_move();
+
+      if (after != before) {
+          value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+      } else {
+          value = qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+      }
+
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
