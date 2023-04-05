@@ -339,6 +339,19 @@ namespace {
 
 } // namespace Eval
 
+/// evaluate() is the evaluator for the outer world. It returns a static
+/// evaluation of the position from the point of view of the side to move.
+
+Value Eval::evaluate(Position& pos)
+{
+
+  Value v;
+
+  v = Evaluation<NO_TRACE>(pos).value();  
+
+  return v;
+}
+
 /// trace() is like evaluate(), but instead of returning a value, it returns
 /// a string (suitable for outputting to stdout) that contains the detailed
 /// descriptions and values of each evaluation term. Useful for debugging.
