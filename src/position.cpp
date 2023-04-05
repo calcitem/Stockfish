@@ -668,16 +668,17 @@ Key Position::key_after(Move m) const {
   Square from = from_sq(m);
   Square to = to_sq(m);
   Piece pc = piece_on(from);
-  Piece captured = piece_on(to);
+  //Piece captured = piece_on(to);
   Key k = st->key ^ Zobrist::side;
 
-  if (captured)
-      k ^= Zobrist::psq[captured][to];
+  //if (captured)
+  //    k ^= Zobrist::psq[captured][to];
 
   k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
 
-  return (captured)
-      ? k : adjust_key50<true>(k);
+ // return (captured)
+  //    ? k : adjust_key50<true>(k);
+  return adjust_key50<true>(k);
 }
 
 
