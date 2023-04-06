@@ -189,17 +189,18 @@ void init(OptionsMap& o) {
   o["Clear Hash"] << Option(on_clear_hash);
   o["Ponder"] << Option(false);
   o["MultiPV"] << Option(1, 1, 500);
-  o["SkillLevel"] << Option(1, 0, 30, on_skill_level);
-
+  o["Skill Level"] << Option(20, 0, 20);
+  // o["SkillLevel"] << Option(1, 0, 30, on_skill_level); // TODO: Sanmill
   o["Move Overhead"] << Option(10, 0, 5000);
   o["Slow Mover"] << Option(100, 10, 1000);
   o["nodestime"] << Option(0, 0, 10000);
+  o["UCI_Chess960"] << Option(false);
   o["UCI_AnalyseMode"] << Option(false);
   o["UCI_LimitStrength"] << Option(false);
   o["UCI_Elo"] << Option(1320, 1320, 3190);
-  o["UCI_ShowWDL"]           << Option(false);
-  o["Use NNUE"]              << Option(false, on_use_NNUE);
-  o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
+  o["UCI_ShowWDL"] << Option(false);
+  o["Use NNUE"] << Option(false, on_use_NNUE);
+  o["EvalFile"] << Option(EvalFileDefaultName, on_eval_file);
 
   o["MoveTime"] << Option(1, 0, 60, on_move_time);
   o["AiIsLazy"] << Option(false, on_aiIsLazy);
