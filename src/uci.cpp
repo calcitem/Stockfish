@@ -33,15 +33,21 @@
 #include "uci.h"
 #include "nnue/evaluate_nnue.h"
 
+#include "config.h"
+
 using namespace std;
 
 namespace Stockfish {
 
 namespace {
 
-  // FEN string for the initial position in standard chess
-  const char* StartFEN = "*******/********/******** w p p 0 9 0 9 0 0 1";    // TODO: Sanmill
+    // FEN string of the initial position, normal mill game
+    const char* StartFEN9 = "********/********/******** w p p 0 9 0 9 0 0 1";
+    const char* StartFEN10 = "********/********/******** w p p 0 10 0 10 0 0 1";
+    const char* StartFEN11 = "********/********/******** w p p 0 11 0 11 0 0 1";
+    const char* StartFEN12 = "********/********/******** w p p 0 12 0 12 0 0 1";
 
+    char StartFEN[BUFSIZ];
 
   // position() is called when the engine receives the "position" UCI command.
   // It sets up the position that is described in the given FEN string ("fen") or
@@ -125,6 +131,10 @@ namespace {
 
   void go(Position& pos, istringstream& is, StateListPtr& states) {
 
+ #ifdef UCI_AUTO_RE_GO
+  begin:
+#endif
+
     Search::LimitsType limits;
     string token;
     bool ponderMode = false;
@@ -150,6 +160,27 @@ namespace {
         else if (token == "ponder")    ponderMode = true;
 
     Threads.start_thinking(pos, states, limits, ponderMode);
+
+    if (pos.get_phase() == Phase::gameOver) {
+#ifdef UCI_AUTO_RESTART
+        // TODO(calcitem)
+        while (true) {
+            if (Threads.main()->searching == true) {
+                continue;
+            }
+
+            pos->set(StartFEN, Threads.main());
+            Threads.main()->us = WHITE; // WAR
+            break;
+        }
+#else
+        return;
+#endif
+    }
+
+#ifdef UCI_AUTO_RE_GO
+    goto begin;
+#endif
   }
 
 
@@ -240,14 +271,64 @@ void UCI::loop(int argc, char* argv[]) {
   string token, cmd;
   StateListPtr states(new std::deque<StateInfo>(1));
 
+  #ifdef _MSC_VER
+  switch (rule.pieceCount) {
+  case 9:
+     strncpy_s(StartFEN, BUFSIZ, StartFEN9, BUFSIZ - 1);
+     break;
+  case 10:
+     strncpy_s(StartFEN, BUFSIZ, StartFEN10, BUFSIZ - 1);
+     break;
+  case 11:
+     strncpy_s(StartFEN, BUFSIZ, StartFEN11, BUFSIZ - 1);
+     break;
+  case 12:
+     strncpy_s(StartFEN, BUFSIZ, StartFEN12, BUFSIZ - 1);
+     break;
+  default:
+     assert(0);
+     break;
+  }
+#else
+  switch (rule.pieceCount) {
+  case 9:
+     strncpy(StartFEN, StartFEN9, BUFSIZ - 1);
+     break;
+  case 10:
+     strncpy(StartFEN, StartFEN10, BUFSIZ - 1);
+     break;
+  case 11:
+     strncpy(StartFEN, StartFEN11, BUFSIZ - 1);
+     break;
+  case 12:
+     strncpy(StartFEN, StartFEN12, BUFSIZ - 1);
+     break;
+  default:
+     assert(0);
+     break;
+  }
+#endif
+
+  StartFEN[BUFSIZ - 1] = '\0';
+
   pos.set(StartFEN, &states->back(), Threads.main());
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";
 
   do {
+#ifdef FLUTTER_UI
+      static const int LINE_INPUT_MAX_CHAR = 4096;
+      char line[LINE_INPUT_MAX_CHAR];
+      CommandChannel* channel = CommandChannel::getInstance();
+      while (!channel->popupCommand(line))
+        Idle();
+      cmd = line;
+      LOGD("[uci] input: %s\n", line);
+#else
       if (argc == 1 && !getline(cin, cmd)) // Wait for an input or an end-of-file (EOF) indication
           cmd = "quit";
+#endif
 
       istringstream is(cmd);
 
@@ -345,7 +426,8 @@ string UCI::wdl(Value v, int ply) {
 /// UCI::square() converts a Square to a string in algebraic notation (g1, a7, etc.)
 
 std::string UCI::square(Square s) {
-  return std::string{ char('a' + file_of(s)), char('1' + rank_of(s)) };    // TODO: Sanmill
+  return std::string { '(', static_cast<char>('0' + file_of(s)), ',',
+      static_cast<char>('0' + rank_of(s)), ')' };
 }
 
 
@@ -356,16 +438,24 @@ std::string UCI::square(Square s) {
 
 string UCI::move(Move m) {
 
+    string move;
+
+  const Square to = to_sq(m);
+
   if (m == MOVE_NONE)
       return "(none)";
 
   if (m == MOVE_NULL)
       return "0000";
 
-  Square from = from_sq(m);
-  Square to = to_sq(m);
-
-  string move = UCI::square(from) + UCI::square(to);
+  if (m < 0) {
+      move = "-" + square(to);
+  } else if (m & 0x7f00) {
+      const Square from = from_sq(m);
+      move = square(from) + "->" + square(to);
+  } else {
+      move = square(to);
+  }
 
   return move;
 }

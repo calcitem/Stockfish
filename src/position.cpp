@@ -333,7 +333,7 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
 #endif
 
     thisThread = th;
-    set_state();
+    set_state();    // TODO: Sanmill: Need?
 
     return *this;
 }
@@ -467,6 +467,7 @@ bool Position::legal(Move m) const {
 
 bool Position::pseudo_legal(const Move m) const {
     // TODO: Sanmill
+    #if 0
   Color us = sideToMove;
   Square to = to_sq(m);
   Piece pc = moved_piece(m);
@@ -479,7 +480,7 @@ bool Position::pseudo_legal(const Move m) const {
   // The destination square cannot be occupied by a friendly piece
   if (pieces(us) & to)
       return false;
-
+  #endif
   return true;
 }
 
@@ -659,7 +660,8 @@ void Position::undo_null_move() {
 /// for speculative prefetch.
 
 Key Position::key_after(Move m) const {
-
+// TODO: Sanmill
+#if 0
   Square from = from_sq(m);
   Square to = to_sq(m);
   Piece pc = piece_on(from);
@@ -674,6 +676,29 @@ Key Position::key_after(Move m) const {
  // return (captured)
   //    ? k : adjust_key50<true>(k);
   return adjust_key50<true>(k);
+#else
+        Key k = st->key;
+    const auto s = to_sq(m);
+    const MoveType mt = type_of(m);
+
+    if (mt == MOVETYPE_REMOVE) {
+        k ^= Zobrist::psq[~side_to_move()][s];
+
+        if (rule.hasBannedLocations && phase == Phase::placing) {
+            k ^= Zobrist::psq[BAN][s];
+        }
+    } else {
+        k ^= Zobrist::psq[side_to_move()][s];
+
+        if (mt == MOVETYPE_MOVE) {
+            k ^= Zobrist::psq[side_to_move()][from_sq(m)];
+        }
+    }
+
+    k ^= Zobrist::side;
+
+    return k;
+#endif
 }
 
 
