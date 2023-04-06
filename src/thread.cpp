@@ -105,6 +105,13 @@ void Thread::idle_loop() {
 
       lk.unlock();
 
+        // Note: Stockfish doesn't have this
+        //if (rootPos == nullptr || rootPos->side_to_move() != us) {
+      // TODO: Sanmill
+      if (/* rootPos.state()->previous == nullptr || */ rootPos.side_to_move() != us) {
+            continue;
+        }
+
       search();
   }
 }

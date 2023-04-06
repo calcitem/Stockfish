@@ -75,6 +75,9 @@ namespace {
         states->emplace_back();
         pos.do_move(m, states->back());
     }
+
+   // TODO: Sanmill: Stockfish does not have this
+    Threads.main()->us = pos.side_to_move();
   }
 
   // trace_eval() prints the evaluation of the current position, consistent with

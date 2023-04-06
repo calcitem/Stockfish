@@ -67,6 +67,8 @@ public:
   Depth rootDepth, completedDepth;
   Value rootDelta;
   CounterMoveHistory counterMoves;
+
+  Color us { WHITE }; // TODO: Sanmill
 };
 
 
