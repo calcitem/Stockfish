@@ -194,24 +194,6 @@ void MovePicker::score() {
     }
 }
 
-/// MovePicker::select() returns the next move satisfying a predicate function.
-/// It never returns the TT move.
-template<MovePicker::PickType T, typename Pred>
-Move MovePicker::select(Pred filter) {
-
-  while (cur < endMoves)
-  {
-      if constexpr (T == Best)
-          std::swap(*cur, *std::max_element(cur, endMoves));
-
-      if (*cur != ttMove && filter())
-          return *cur++;
-
-      cur++;
-  }
-  return MOVE_NONE;
-}
-
 /// MovePicker::next_move() is the most important method of the MovePicker class. It
 /// returns a new pseudo-legal move every time it is called until there are no more
 /// moves left, picking the move with the highest score from a list of generated moves.
